@@ -152,7 +152,7 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Database operation duration \u2014 average",
+      "title": "Database operation duration — average",
       "description": "Average API-side PostgreSQL index operation duration over five minutes, grouped by method. Includes SQL execution, result reading and mapping; an operation may execute multiple SQL statements. Includes failed attempts. Empty lookups that execute no SQL are skipped.",
       "datasource": {
         "type": "prometheus",
@@ -212,7 +212,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Search interaction duration \u2014 browser",
+      "title": "Search interaction duration — browser",
       "description": "Browser form submission until a paint opportunity after successful results, including empty results. Includes browser/Blazor communication, API/database work, and the DOM update. Excludes errors, hidden tabs, superseded interactions and samples over five minutes. Approximate visible completion, not an exact pixel-paint timestamp.",
       "datasource": {
         "type": "prometheus",
@@ -254,7 +254,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 56,
         "w": 24,
         "h": 10
       },
@@ -267,6 +267,78 @@
       "options": {
         "showTime": true,
         "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "description": "Share of cacheable searches answered from Redis (cache-aside). Empty while the SearchCache flag is off or there is no traffic.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(searchv2_cache_hits_total{service_name=\"search-api\"}[5m])) / (sum(rate(searchv2_cache_hits_total{service_name=\"search-api\"}[5m])) + sum(rate(searchv2_cache_misses_total{service_name=\"search-api\"}[5m])))",
+          "legendFormat": "hit ratio"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Cache hits, misses and errors / second",
+      "description": "Misses go to PostgreSQL. Errors are Redis failures that were answered from the database.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(searchv2_cache_hits_total{service_name=\"search-api\"}[5m]))",
+          "legendFormat": "hits"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(searchv2_cache_misses_total{service_name=\"search-api\"}[5m]))",
+          "legendFormat": "misses"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(searchv2_cache_errors_total{service_name=\"search-api\"}[5m]))",
+          "legendFormat": "errors (Redis down, fell back to DB)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
       }
     }
   ]

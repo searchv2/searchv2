@@ -116,11 +116,12 @@ Redis password exists in both `caching` and `searchv2`, and the `searcher` passw
   documents at the identical `/data/docs` path, because file paths are stored in
   the index. The document snapshot is mounted read-only into the pods.
 * Only the indexer changes the index tables. Reindex with API replicas stopped.
-* Both API replicas share Redis search results. The cache uses a one-minute
-  sliding TTL. `start.sh` generates a Redis password in a Kubernetes Secret,
+* Both API replicas share Redis search results (cache-aside, one-minute sliding TTL
+  with a five-minute absolute limit; Redis evicts with `allkeys-lru` above 64 MB; see
+  [CACHING.md](CACHING.md)). `start.sh` generates a Redis password in a Kubernetes Secret,
   reuses it on later starts, and restarts Redis after indexing to clear old
-  search results. Redis is one pod with no persistent volume or replica; a Redis
-  outage currently makes search requests fail until it returns.
+  search results. Redis is one pod with no persistent volume or replica; during a Redis
+  outage the API answers from PostgreSQL (slower, no errors) until it returns.
 * API and Blazor use the OpenTelemetry .NET SDK to export built-in ASP.NET Core,
   HTTP client, and runtime metrics plus `ILogger` logs over OTLP/gRPC. Export is
   enabled when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. The collector batches metrics
@@ -604,8 +605,9 @@ kubectl --context searchv2 -n searchv2 describe job/indexer
   and that the `postgresql-credentials` Secret exists in `searchv2`.
 * `Pending` PVC (PostgreSQL): check `minikube addons list -p searchv2`; the default
   `storage-provisioner` and `default-storageclass` addons must be enabled.
-* Search requests fail while Redis is unavailable: check `deployment/redis`,
-  its logs, and the `redis-credentials` Secret.
+* Searches are slow and the dashboard shows cache errors: Redis is unavailable and the
+  API is answering from PostgreSQL. Check `deployment/redis`, its logs, and the
+  `redis-credentials` Secret.
 * Grafana has no data: generate successful API requests, check the collector
   logs for export errors, and verify `up{job="otel-collector"}` equals `1` in
   Explore. Forward `service/prometheus 9090:9090` to inspect its `/targets` page.

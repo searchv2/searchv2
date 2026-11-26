@@ -18,7 +18,7 @@ C4Container
 
     Boundary(data, "Data") {
         ContainerDb(searchIndex, "Search index", "PostgreSQL", "Stores documents, normalized words, and word-document occurrences")
-        ContainerDb(searchCache, "Search result cache", "Redis", "Shares search responses between API replicas for one sliding minute")
+        ContainerDb(searchCache, "Search result cache", "Redis", "Shares search responses between API replicas for one sliding minute (five-minute absolute limit)")
         ContainerDb(documentCorpus, "Document corpus", "Filesystem", "Contains the source .txt files")
     }
 

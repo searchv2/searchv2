@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.FeatureManagement;
 using SearchAPI.Api.Controllers;
 using SearchAPI.Application;
@@ -14,11 +15,11 @@ namespace SearchAPI.Tests;
 public sealed class SearchCacheTests
 {
     [Fact]
-    public async Task Search_caches_results_for_one_sliding_minute_and_separates_requests()
+    public async Task Search_caches_results_with_sliding_and_absolute_expiry_and_separates_requests()
     {
         var cache = new RecordingCache();
         var search = new CountingSearch();
-        var controller = new SearchController(search, cache, Features(cacheEnabled: true));
+        var controller = new SearchController(search, cache, Features(cacheEnabled: true), NullLogger<SearchController>.Instance);
 
         var first = Result(await controller.Post(new SearchRequest(["apple"], false), default));
         var repeated = Result(await controller.Post(new SearchRequest(["apple"], false), default));
@@ -31,7 +32,7 @@ public sealed class SearchCacheTests
         Assert.Equal(3, cache.Keys.Count);
         Assert.All(cache.Keys, key => Assert.DoesNotContain("apple", key));
         Assert.Equal(TimeSpan.FromMinutes(1), cache.Options!.SlidingExpiration);
-        Assert.Null(cache.Options.AbsoluteExpirationRelativeToNow);
+        Assert.Equal(TimeSpan.FromMinutes(5), cache.Options.AbsoluteExpirationRelativeToNow);
         Assert.Equal(new[] { "cherry" }, otherQuery.Query);
         Assert.Equal(new[] { "apple" }, caseSensitive.Query);
     }
@@ -41,7 +42,7 @@ public sealed class SearchCacheTests
     {
         var cache = new RecordingCache();
         var search = new CountingSearch();
-        var controller = new SearchController(search, cache, Features(cacheEnabled: false));
+        var controller = new SearchController(search, cache, Features(cacheEnabled: false), NullLogger<SearchController>.Instance);
 
         await controller.Post(new SearchRequest(["apple"], false), default);
         var repeated = Result(await controller.Post(new SearchRequest(["apple"], false), default));
@@ -49,6 +50,37 @@ public sealed class SearchCacheTests
         Assert.Equal(2, search.Calls);
         Assert.Empty(cache.Keys);
         Assert.Equal(new[] { "apple" }, repeated.Query);
+    }
+
+    [Fact]
+    public async Task Search_falls_back_to_the_search_service_when_the_cache_fails()
+    {
+        var search = new CountingSearch();
+        var controller = new SearchController(search, new FailingCache(), Features(cacheEnabled: true),
+            NullLogger<SearchController>.Instance);
+
+        var first = Result(await controller.Post(new SearchRequest(["apple"], false), default));
+        var second = Result(await controller.Post(new SearchRequest(["apple"], false), default));
+
+        Assert.Equal(2, search.Calls);
+        Assert.Equal(new[] { "apple" }, first.Query);
+        Assert.Equal(new[] { "apple" }, second.Query);
+    }
+
+    [Fact]
+    public async Task Search_treats_an_unreadable_cache_entry_as_a_miss()
+    {
+        var cache = new RecordingCache();
+        var search = new CountingSearch();
+        var controller = new SearchController(search, cache, Features(cacheEnabled: true),
+            NullLogger<SearchController>.Instance);
+        await controller.Post(new SearchRequest(["apple"], false), default);
+        cache.CorruptAll();
+
+        var result = Result(await controller.Post(new SearchRequest(["apple"], false), default));
+
+        Assert.Equal(2, search.Calls);
+        Assert.Equal(new[] { "apple" }, result.Query);
     }
 
     private static IFeatureManager Features(bool cacheEnabled)
@@ -103,6 +135,12 @@ public sealed class SearchCacheTests
         public IReadOnlyCollection<string> Keys => _items.Keys;
         public DistributedCacheEntryOptions? Options { get; private set; }
 
+        public void CorruptAll()
+        {
+            foreach (var key in _items.Keys.ToList())
+                _items[key] = "not json"u8.ToArray();
+        }
+
         public byte[]? Get(string key) => _items.GetValueOrDefault(key);
         public Task<byte[]?> GetAsync(string key, CancellationToken token = default) => Task.FromResult(Get(key));
         public void Refresh(string key) { }
@@ -123,5 +161,19 @@ public sealed class SearchCacheTests
             Set(key, value, options);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FailingCache : IDistributedCache
+    {
+        private static Exception Down() => new InvalidOperationException("Redis is down");
+
+        public byte[]? Get(string key) => throw Down();
+        public Task<byte[]?> GetAsync(string key, CancellationToken token = default) => throw Down();
+        public void Refresh(string key) => throw Down();
+        public Task RefreshAsync(string key, CancellationToken token = default) => throw Down();
+        public void Remove(string key) => throw Down();
+        public Task RemoveAsync(string key, CancellationToken token = default) => throw Down();
+        public void Set(string key, byte[] value, DistributedCacheEntryOptions options) => throw Down();
+        public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) => throw Down();
     }
 }

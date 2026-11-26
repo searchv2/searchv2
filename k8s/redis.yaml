@@ -19,9 +19,16 @@ spec:
         image: redis:7-alpine
         imagePullPolicy: Never
         command: ["/bin/sh", "-c"]
-        args: ['exec redis-server --save "" --appendonly no --requirepass "$(cat /run/secrets/redis/password)"']
+        args: ['exec redis-server --save "" --appendonly no --maxmemory 64mb --maxmemory-policy allkeys-lru --requirepass "$(cat /run/secrets/redis/password)"']
         ports:
         - containerPort: 6379
+        # maxmemory (64mb) is below the container limit so Redis evicts (allkeys-lru) instead of being OOM-killed.
+        resources:
+          requests:
+            cpu: 50m
+            memory: 96Mi
+          limits:
+            memory: 128Mi
         readinessProbe:
           tcpSocket:
             port: 6379
