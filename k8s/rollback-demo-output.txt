@@ -1,0 +1,55 @@
+
+=== 0. Current state (image searchv2-search-api:1.0.1)
+deployment "search-api" successfully rolled out
+NAME                         READY   STATUS    RESTARTS   AGE
+search-api-d947c8b47-p6j99   1/1     Running   0          5h20m
+search-api-d947c8b47-xsg24   1/1     Running   0          5h20m
+deployment.apps/search-api 
+REVISION  CHANGE-CAUSE
+4         <none>
+5         <none>
+7         demo: release searchv2-search-api:does-not-exist (broken on purpose)
+8         rollback: back to searchv2-search-api:1.0.1 after the broken release
+
+
+=== 1. Bad release: image tag that does not exist
+deployment.apps/search-api annotated
+deployment.apps/search-api image updated
+Waiting 40 s for the rollout to stall...
+NAME                          READY   STATUS              RESTARTS   AGE
+search-api-854b459d86-dbdkc   0/1     ErrImageNeverPull   0          40s
+search-api-d947c8b47-p6j99    1/1     Running             0          5h21m
+search-api-d947c8b47-xsg24    1/1     Running             0          5h20m
+Service endpoints (only Ready pods receive traffic; the broken pod is not among them):
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME         ENDPOINTS                           AGE
+search-api   10.244.0.69:8080,10.244.0.70:8080   38d
+Waiting for deployment "search-api" rollout to finish: 1 out of 2 new replicas have been updated...
+error: timed out waiting for the condition
+As expected: the rollout does not complete. The new pod cannot start, the old pods stay Ready.
+
+=== 2. Did users notice? Requests sent during the bad release
+    253 200
+(The port-forward pins to one pod, so this shows that pod stayed up; the endpoints above show both did.)
+
+=== 3. Roll back
+Warning: resource deployments/search-api was previously managed with 'kubectl apply'. Rolling back will not update the kubectl.kubernetes.io/last-applied-configuration annotation, which may cause unexpected behavior on future 'kubectl apply' operations. Consider using 'kubectl apply' with your previous configuration file instead.
+deployment.apps/search-api rolled back
+deployment.apps/search-api annotated
+deployment "search-api" successfully rolled out
+NAME                          READY   STATUS        RESTARTS   AGE
+search-api-854b459d86-dbdkc   0/1     Terminating   0          60s
+search-api-d947c8b47-p6j99    1/1     Running       0          5h21m
+search-api-d947c8b47-xsg24    1/1     Running       0          5h21m
+
+=== 4. History (change causes) and the whole run
+deployment.apps/search-api 
+REVISION  CHANGE-CAUSE
+4         <none>
+5         <none>
+9         demo: release searchv2-search-api:does-not-exist (broken on purpose)
+10        rollback: back to searchv2-search-api:1.0.1 after the broken release
+
+Requests during the whole demo (HTTP status):
+    255 200
+Image now: searchv2-search-api:1.0.1

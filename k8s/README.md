@@ -535,20 +535,58 @@ minikube ssh -p searchv2 -- 'sudo rm -rf /data/searchv2-docs && sudo mkdir -p /d
 ## Updates and rollback
 
 Use a new image tag for each update, load it, and update the Deployment, as in
-MK-TEST. For example, after building/loading `searchv2-search-api:1.0.2`:
+MK-TEST. Record why the change is made with a `kubernetes.io/change-cause` annotation
+**before** changing the image, so `rollout history` is readable. For example, after
+building/loading `searchv2-search-api:1.0.2`:
 
 ```sh
+kubectl --context searchv2 -n searchv2 annotate deployment/search-api \
+  kubernetes.io/change-cause="release 1.0.2: <what changed>" --overwrite
 kubectl --context searchv2 -n searchv2 set image deployment/search-api search-api=searchv2-search-api:1.0.2
 kubectl --context searchv2 -n searchv2 rollout status deployment/search-api
 kubectl --context searchv2 -n searchv2 rollout history deployment/search-api
 # If necessary:
 kubectl --context searchv2 -n searchv2 rollout undo deployment/search-api
+# Or to a specific revision from the history:
+kubectl --context searchv2 -n searchv2 rollout undo deployment/search-api --to-revision=5
 ```
 
 Also update the tag in `k8s/apps.yaml` for the desired version, or a later apply
 will restore its older tag. Rollback requires the older image in Minikube and a
-retained ReplicaSet. API rollouts use `maxSurge: 1`, `maxUnavailable: 0`, and
+retained ReplicaSet: `revisionHistoryLimit` is 5 for both Deployments, so the five previous
+revisions can be restored. API rollouts use `maxSurge: 1`, `maxUnavailable: 0`, and
 readiness probes. Blazor restarts/rollouts still disconnect active circuits.
+
+### Failed release and rollback demo
+
+`k8s/rollback-demo.sh` runs the whole story against the live cluster (about two minutes) and
+always restores the original image:
+
+1. it releases an image tag that does not exist, with a change-cause annotation;
+2. the new pod stays in `ErrImageNeverPull`, the rollout never completes, but both old pods
+   stay Ready and the Service endpoints list only them, because `maxUnavailable: 0` keeps
+   the old pods until a new one is Ready. A search every 0.2 s through the Service returned
+   HTTP 200 throughout (253 of 253 in the recorded run);
+3. `kubectl rollout undo` restores the previous version and `rollout history` shows the
+   change causes.
+
+The recorded output is in `k8s/rollback-demo-output.txt`. Two things the run showed: `rollout
+undo` re-uses the old revision's number (the previous revision 6 became 8, so the history has
+gaps), and kubectl warns that an undo does not update the `last-applied-configuration`
+annotation, which is why the tag in `k8s/apps.yaml` must be kept in step with what is deployed.
+
+What the demo does not show: a rollback while many users are active (untested, as the report
+says), and a rollback of a release that is "healthy" but wrong, which the readiness probe cannot
+catch. That is what the feature flag is for ("Disabling a feature" below).
+
+### Rollback and the index schema
+
+Rolling back the API is safe as long as the index tables are compatible with the older code.
+The API only reads the index; the indexer drops and recreates the tables on every run. If a new
+release changes the schema (`PostgresIndexStore.cs`), roll the API **and** the indexer back to
+the same tag and reindex (`./k8s/start.sh` or the reindex steps above), because an old API on a
+newer index may fail. The API is scaled to zero during reindexing, so there is no mixed state.
+Configuration is not rolled back by `rollout undo` (ConfigMaps and Secrets are separate objects).
 
 Edit monitoring configuration under `k8s/observability/` and reapply `-k k8s`.
 Kustomize generates named ConfigMaps with content hashes, causing affected
