@@ -571,8 +571,8 @@ always restores the original image:
    change causes.
 
 The recorded output is in `k8s/rollback-demo-output.txt`. Two things the run showed: `rollout
-undo` re-uses the old revision's number (the previous revision 6 became 8, so the history has
-gaps), and kubectl warns that an undo does not update the `last-applied-configuration`
+undo` re-uses the old revision's number, so the history has gaps (the recorded run shows
+revisions 4, 5, 9, 10), and kubectl warns that an undo does not update the `last-applied-configuration`
 annotation, which is why the tag in `k8s/apps.yaml` must be kept in step with what is deployed.
 
 What the demo does not show: a rollback while many users are active (untested, as the report
