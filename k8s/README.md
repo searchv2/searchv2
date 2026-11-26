@@ -374,6 +374,10 @@ You should see request logs, including the search requests. Request bodies are
 not logged by this setup; avoid adding search text or document contents to logs.
 `service_instance_id` distinguishes app pods in the exported telemetry.
 
+### Load test
+
+`k8s/load-test.py` generates search load and `PERFORMANCE-TEST.md` describes the test design, how to run it and the results.
+
 ### Optional telemetry smoke test
 
 With Python 3 installed and the API port-forward still running, forward these

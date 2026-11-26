@@ -132,7 +132,7 @@
       "gridPos": {
         "x": 0,
         "y": 16,
-        "w": 24,
+        "w": 12,
         "h": 8
       },
       "targets": [
@@ -295,7 +295,8 @@
         "defaults": {
           "unit": "percentunit",
           "min": 0,
-          "decimals": 0
+          "decimals": 0,
+          "max": 1
         },
         "overrides": []
       }
@@ -340,6 +341,35 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Process CPU by pod (cores)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name, service_instance_id) (rate(dotnet_process_cpu_time_seconds_total{service_name=~\"search-api|blazor\"}[1m]))",
+          "legendFormat": "{{service_name}} / {{service_instance_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "description": "CPU time consumed per second (1 = one full core). Compare with the pod CPU request of 0.1 and the 4 CPUs of the Minikube node."
     }
   ]
 }

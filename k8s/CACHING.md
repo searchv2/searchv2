@@ -54,7 +54,7 @@ On the Grafana dashboard: **Cache hit ratio** (hits / (hits + misses)) and **Cac
 
 ## Expected hit ratio
 
-Not measured yet. Search traffic is repetitive (a few popular queries repeat), so a hit ratio well above 50 % is plausible, but this is an assumption. It should be replaced with a figure from the performance test (backlog item 5), which also gives the database load with and without the cache. A rough sizing check: one entry is a few KB, so 64 MB holds on the order of 10,000 distinct queries, far more than the five-minute TTL lets accumulate at this traffic, so evictions should be rare.
+Measured in the load test (`PERFORMANCE-TEST.md`): about **80 %**, with a workload of 50 repeating queries (skewed) and 20 % one-off queries, so the figure is largely set by that mix and is not a prediction for real traffic. What it does show: with the cache the system served 135 req/s at 16 workers against 40 req/s without, and p50 latency fell from 300 ms to 10 ms. The database saturates at about 40 uncached searches per second, so with hit ratio *h* the system can serve about 40 / (1 - *h*) req/s, which is the justification for caching in numbers. A rough sizing check: one entry is a few KB, so 64 MB holds on the order of 10,000 distinct queries, far more than the five-minute TTL lets accumulate at this traffic, so evictions should be rare (Redis' eviction counter is not monitored, so this is not verified).
 
 ## Scaling Redis (not done)
 
