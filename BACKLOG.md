@@ -15,7 +15,7 @@ Decided scope: this is an exam about architecture and the big picture. The teach
 5. **Performance test** (module 9): a load script, a short written test design (success criteria, environment, metrics, load, evaluation), a run with the Grafana results, and a CPU metric. The exam description asks for tests that quantify the environment. **DONE:** `k8s/load-test.py`, design and results in `k8s/PERFORMANCE-TEST.md`, a CPU panel on the dashboard, a cache on/off comparison with Grafana screenshots in `k8s/perf-results/`. Finding: the bottleneck is the database path, not the API.
 6. **C4 diagram completion and decision log** (module 7): add env vars, volumes and namespaces, and the 3–5 point decision log. **DONE:** tables and a five-point decision log beside the diagram in `c4reference/kubernetes-startup-c4.md`. You still have to complete the "use of AI" sentence (what you accepted or rejected) and be able to explain each element.
 7. **Rollback demo** (module 8): `change-cause` annotations, a raised `revisionHistoryLimit`, and a short scripted or written failed-release-then-rollback demonstration. **DONE and run live:** `k8s/rollback-demo.sh` (output in `k8s/rollback-demo-output.txt`), `revisionHistoryLimit: 5`, change-cause procedure and the schema-compatibility note in `k8s/README.md`.
-8. **Verify that everything works** (module 11 doc hygiene): re-run `./k8s/start.sh` and `k8s/smoke-test.py`, then update the stale "Validation performed" section. Prepare a short demo script.
+8. **Verify that everything works** (module 11 doc hygiene): re-run `./k8s/start.sh` and `k8s/smoke-test.py`, then update the stale "Validation performed" section. Prepare a short demo script. **DONE:** re-validated 2026-11-26 (`start.sh` 283 s, smoke test passed, all test suites green) and the section rewritten; demo script in `k8s/DEMO.md`. Findings: with Redis down every search succeeds but takes about 4 s (a circuit breaker would fix it, not implemented); an obsolete copy of the monitoring stack remains in the `searchv2` namespace.
 
 ### Tier 2: should do (cheap and strengthens the story)
 - **Decision notes** (a paragraph each): database in Kubernetes or not (module 11), synchronous vs. asynchronous design (module 1), why plain manifests plus OpenTelemetry instead of the guide's loki-stack/kube-prometheus-stack (modules 8–9), the `hostPath` document volume and what you would use in production (module 11), one build-vs-buy paragraph (module 8).
@@ -48,7 +48,7 @@ Source: `eksamensprojektet_v1_0.pdf` (module 5 folder). The project itself is no
 - [x] **Fault tolerance / performance:** load test, design and results in `k8s/PERFORMANCE-TEST.md` (module 9).
 - [x] **Databases:** z-axis design written in `k8s/DATABASE-SCALING.md` (module 12).
 - [x] **Caching:** cache-aside with write-up and hardening done (`k8s/CACHING.md`); live-cluster check and measured hit ratio pending.
-- [~] **Exam demo:** the system runs from one command (`k8s/start.sh`); needs a re-verification run and a short demo script (see Priorities).
+- [x] **Exam demo:** re-verified and a demo script written (`k8s/DEMO.md`).
 - [x] **UML diagrams for the exam:** class, object and deployment diagrams exist in `uml/` (PlantUML sources plus PNG/SVG). The C4 diagram is separate.
 - [ ] **Project definition:** max one page, approved by the teachers. The deadline for approval was 2026-11-17 (draft recommended 2026-11-03). Confirm whether this was done.
 - [~] **Extension feature:** decided so far: termnet/synonyms and snippets are not relevant, and scoring is not needed. Asynchronous design (e.g. a service bus for indexing) is something to consider, but it is not decided. Confirm what the approved project definition says.
@@ -219,7 +219,7 @@ M11.01 is a pair exercise on busybox pods (emptyDir vs. PersistentVolumeClaim). 
 - [ ] **Decision note: run the database inside Kubernetes or not.** The slides list the downsides (complexity, performance, persistence, security, networking, scaling, operational overhead) and the Google reading ("to run or not to run a database on Kubernetes"). Add a short paragraph to the architecture notes saying why you run PostgreSQL in the cluster for this project, and when you would use a managed service instead. This is the likely exam question and ties into module 12 (replicas).
 
 ### Doc hygiene noticed while reading
-- [ ] **Stale validation section.** `k8s/README.md` ("Validation performed") says the setup was validated on 19 October 2026 and explicitly "not a validation of the current Redis deployment". Re-run `./k8s/start.sh` plus `k8s/smoke-test.py` and update that section when the module work is done.
+- [x] **Validation section rewritten (2026-11-26).** Original finding: **Stale validation section.** `k8s/README.md` ("Validation performed") says the setup was validated on 19 October 2026 and explicitly "not a validation of the current Redis deployment". Re-run `./k8s/start.sh` plus `k8s/smoke-test.py` and update that section when the module work is done.
 
 ## Module 12: Databases 2 (splitting databases, read replicas)
 

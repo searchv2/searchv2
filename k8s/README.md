@@ -374,6 +374,10 @@ You should see request logs, including the search requests. Request bodies are
 not logged by this setup; avoid adding search text or document contents to logs.
 `service_instance_id` distinguishes app pods in the exported telemetry.
 
+### Demo
+
+`DEMO.md` is a short script for presenting the system (about 12 minutes), with the commands to run and what to say.
+
 ### Load test
 
 `k8s/load-test.py` generates search load and `PERFORMANCE-TEST.md` describes the test design, how to run it and the results.
@@ -684,24 +688,53 @@ minikube delete -p searchv2
 
 ## Validation performed
 
-The pre-Redis setup was validated locally on 19 October 2026 with the Docker
-Minikube driver. These are historical results, not a validation of the current
-Redis deployment:
+Re-validated on 26 November 2026 on the Docker Minikube driver (profile `searchv2`), with the
+current code: Redis cache with fallback, feature flag, rollback settings and the extended dashboard.
 
-* API and Blazor builds passed, and all three application images built.
-* Kubernetes accepted the application and monitoring manifests in server dry runs.
-* The indexer processed 3,034 documents, and both API replicas became ready.
-* Blazor rendered through its Service. Grafana authenticated, loaded the six
-  dashboard panels present at the time, and passed health checks for both data sources.
-* The smoke test confirmed real search metrics in Prometheus and matching
-  request logs in Loki. Grafana's data-source proxy returned runtime memory
-  metrics for the Blazor pod and both API pods.
-* The guarded indexer rejected an empty corpus and indexed a synthetic document.
+**Automated**
 
-The node's Docker Hub DNS failed during validation; preloading monitoring images
-from the host worked. The 9p live mount also timed out, so this guide uses a
-copied document snapshot. Multi-node storage, sustained load, and rollback
-under active user traffic were not tested.
+* `./k8s/start.sh` ran from start to finish in 283 s on an existing cluster (images rebuilt and
+  loaded, Helm release, manifests applied, index rebuilt, rollouts completed).
+* The indexer reported `Indexed 3034 documents`; both API replicas became ready; the GUI answered
+  HTTP 200 through its Service.
+* `python3 k8s/smoke-test.py` passed: real search requests, a positive API request metric and
+  database operation metric in Prometheus, and matching request logs in Loki.
+* Unit tests: `SearchAPI.Tests` 6 of 6 (including the PostgreSQL test, run against the cluster
+  database), `LoadBalancer.Tests` 4 of 4, `blazor-client-gui.Tests` 1 of 1 plus 7 of 7 JavaScript
+  timing tests. `python3 k8s/test-start.py` (startup order and failure handling against stubs): 5 of 5.
+
+**Checked on the live cluster**
+
+* Grafana authenticated and reported healthy; both data sources (Prometheus, Loki) passed their
+  health check; the dashboard has 12 panels, including CPU and the two cache panels.
+* Redis runs with `maxmemory` 64 MiB and `allkeys-lru`.
+* Load test (`PERFORMANCE-TEST.md`): the request count seen by Prometheus matched the client's
+  count exactly, with the cache on and off.
+* Feature flag: switching `SearchCache` off through the ConfigMap reached both pods without a
+  restart, and searches then bypassed Redis (cache on/off runs in `PERFORMANCE-TEST.md`).
+* Redis outage: with Redis scaled to zero every search still returned HTTP 200 and the API logged
+  "Search cache ... failed; falling back to the database". **Each search took about 4 s** during the
+  outage (about 0.05 s normally), because every request still tries Redis twice before falling
+  back. Normal speed returned within seconds of Redis coming back.
+* Failed release and rollback: `k8s/rollback-demo.sh` (output in `k8s/rollback-demo-output.txt`).
+* Scaling the API from 2 to 3 replicas and back worked.
+
+**Not tested**
+
+* The guarded indexer against an empty corpus on the live cluster (only against stubs in
+  `test-start.py`); multi-node storage; sustained load beyond 3 minutes; rollback under active user
+  traffic; a Redis outage under load.
+* The `LoadBalancer` and `ConsoleSearch` projects (excluded from the deployment).
+
+**Known issues found while validating**
+
+* The `searchv2` namespace still holds an old copy of Grafana, Loki, Prometheus and the collector
+  from before the `devops` split (created 19 October). Nothing uses them; the live stack is in `devops`.
+* A PostgreSQL already listening on `localhost:5432` blocks a port-forward to that port; use another
+  local port (for example `55432:5432`).
+
+Earlier environment notes still apply: the node's Docker Hub DNS fails, so images are preloaded from
+the host, and the 9p live mount timed out, so this guide uses a copied document snapshot.
 
 ## References
 

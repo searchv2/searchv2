@@ -44,7 +44,7 @@ Cache-aside (lazy loading). The application is the only writer to the cache and 
 A cache is an optimisation, so it must not take search down:
 
 - The controller catches Redis errors (read, write, and unreadable entries) and answers from PostgreSQL. Each failure is counted in `searchv2.cache_errors` and logged as a warning.
-- The connection uses `AbortOnConnectFail=false` and 1 s timeouts, so a Redis outage costs at most about a second per request and does not stop the API from starting.
+- The connection uses `AbortOnConnectFail=false` and 1 s timeouts, so a Redis outage does not stop the API from starting. **Measured with Redis scaled to zero: every search still succeeds, but takes about 4 s instead of about 0.05 s**, because each request tries Redis for the read and again for the write before falling back. Remaining weakness: a circuit breaker (skip the cache for some seconds after a failure) would remove that delay; it is not implemented.
 - Covered by `SearchCacheTests` (failing cache, corrupt entry).
 - With the flag switched off, Redis is not touched at all.
 
