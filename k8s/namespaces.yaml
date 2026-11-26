@@ -1,0 +1,21 @@
+# One namespace per software system, following the C4 container diagram.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: searchv2
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devops
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: caching
+---
+# PostgreSQL is installed here with the Bitnami Helm chart.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: database

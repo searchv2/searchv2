@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: indexer
+  namespace: searchv2
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: indexer
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      volumes:
+      - name: documents
+        hostPath:
+          path: /data/searchv2-docs
+          type: Directory
+      containers:
+      - name: indexer
+        image: searchv2-indexer:1.0.1
+        imagePullPolicy: Never
+        env:
+        - name: SEARCH_DB_CONNECTION
+          value: Host=postgresql-db.database.svc.cluster.local;Port=5432;Database=searchengine;Username=searcher;Gss Encryption Mode=Disable
+        - name: SEARCH_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: password
+        - name: INDEXER_FOLDER
+          value: /data/docs
+        volumeMounts:
+        - name: documents
+          mountPath: /data/docs
+          readOnly: true
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            memory: 2Gi
+        command:
+        - /bin/sh
+        - -ec
+        args:
+        - |
+          test -n "$(find /data/docs -type f -name '*.txt' -print -quit)" || {
+            echo 'No .txt files found; refusing to replace the index.' >&2
+            exit 1
+          }
+          exec dotnet indexer.dll

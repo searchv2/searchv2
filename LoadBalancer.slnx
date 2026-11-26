@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+    <File Path="docker-compose.yml" />
+    <File Path="LoadBalancer/README.md" />
+    <File Path="LoadBalancer/Dockerfile" />
+    <File Path="LoadBalancer/.dockerignore" />
+    <File Path="LoadBalancer/appsettings.json" />
+    <File Path="LoadBalancer/appsettings.Development.json" />
+  </Folder>
+  <Project Path="LoadBalancer/LoadBalancer.csproj" />
+  <Project Path="LoadBalancer.Tests/LoadBalancer.Tests.csproj" />
+  <Project Path="SearchAPI/SearchAPI.csproj" />
+  <Project Path="SearchAPI.Tests/SearchAPI.Tests.csproj" />
+  <Project Path="blazor-client-gui.Tests/BlazorClientGui.Tests.csproj" />
+</Solution>

@@ -1,0 +1,17 @@
+# Feature flags for SearchAPI (M8.02 "markdown": design to be disabled).
+# Mounted as a file at /config, so a flag can be switched without a new image or a restart:
+#   kubectl -n searchv2 patch configmap feature-flags --type merge \
+#     -p '{"data":{"featureflags.json":"{\"FeatureManagement\":{\"SearchCache\":false}}"}}'
+# SearchCache=false makes SearchAPI skip Redis entirely; the change reaches the pods after 1-2 minutes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-flags
+  namespace: searchv2
+data:
+  featureflags.json: |
+    {
+      "FeatureManagement": {
+        "SearchCache": true
+      }
+    }

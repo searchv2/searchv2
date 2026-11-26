@@ -1,0 +1,19 @@
+# Values for the Bitnami PostgreSQL chart (Guide M11.02), installed as release
+# postgresql-db in the database namespace:
+#   helm upgrade --install postgresql-db bitnami/postgresql --version 18.12.17 \
+#     --values k8s/postgresql/custom-values.yaml --namespace database
+# Passwords are not stored here: start.sh generates the postgresql-credentials
+# Secret (keys postgres-password and password) before installing.
+global:
+  postgresql:
+    auth:
+      username: "searcher"
+      database: "searchengine"
+      existingSecret: "postgresql-credentials"
+# start.sh loads this image from the host as docker.io/bitnami/postgresql:latest,
+# because the Minikube node cannot resolve Docker Hub.
+image:
+  registry: docker.io
+primary:
+  persistence:
+    size: 2Gi

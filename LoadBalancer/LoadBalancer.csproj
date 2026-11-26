@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <!-- Non-code project items, grouped so they don't clutter the project view. -->
+  <ItemGroup Label="Docs and container">
+    <None Include="README.md" />
+    <None Include="Dockerfile" />
+    <None Include=".dockerignore" />
+  </ItemGroup>
+
+</Project>

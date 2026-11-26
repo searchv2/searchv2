@@ -1,0 +1,101 @@
+@startuml object-diagram
+title SearchV2 - Object diagram: snapshot of one search for "apple" (cache miss)
+skinparam linetype ortho
+hide empty members
+
+' A snapshot of the objects that exist while search-api-1 answers
+' POST /api/search {"Query":["apple"],"CaseSensitive":false} and the result is not yet cached.
+' Values are illustrative; the classes are the ones in class-diagram.puml.
+
+object "request : SearchRequest" as request {
+  Query = ["apple"]
+  CaseSensitive = false
+}
+
+object "controller : SearchController" as controller {
+  SearchCacheFlag = "SearchCache"
+}
+
+object "features : IFeatureManager" as features {
+  SearchCache = true
+}
+
+object "cache : IDistributedCache" as cache {
+  implementation = Redis (redis.caching:6379)
+  InstanceName = "SearchV2_"
+  SlidingExpiration = 1 minute
+}
+
+object "entry : CacheEntry" as entry {
+  key = "search:" + SHA-256(request JSON)
+  value = serialised SearchResult
+}
+
+object "service : SearchService" as service
+
+object "index : PostgresDocumentIndex" as index {
+  database = searchengine
+  host = postgresql-db.database
+}
+
+object "reader : FileDocumentContentReader" as reader {
+  root = /data/docs (read-only)
+}
+
+object "outcome : SearchOutcome" as outcome {
+  Query = ["apple"]
+  TotalHits = 1
+  IgnoredWords = []
+  Elapsed = 12 ms
+}
+
+object "hit : SearchHit" as hit {
+  MatchedWords = 1
+  MissingWords = []
+}
+
+object "doc : Document" as doc {
+  Id = 1
+  Url = "/data/docs/example/1.txt"
+  IndexedAt = "2026-11-26"
+}
+
+object "result : SearchResult" as result {
+  Query = ["apple"]
+  Hits = 1
+  TimeUsed = 12 ms
+}
+
+object "documentHit : DocumentHit" as documentHit {
+  NoOfHits = 1
+  Missing = []
+}
+
+object "bedoc : BEDocument" as bedoc {
+  mId = 1
+  mUrl = "/data/docs/example/1.txt"
+}
+
+request --> controller : Post(request)
+controller --> features : 1. IsEnabledAsync("SearchCache")
+controller --> cache : 2. GetStringAsync(key) = null (miss)
+controller --> service : 3. Search(["apple"], false)
+service --> index : GetWordIds / GetDocuments / GetDocDetails
+service --> reader : TryRead(url)
+service --> outcome : creates
+outcome *-- hit
+hit --> doc
+controller --> result : 4. ToContract(outcome)
+result *-- documentHit
+documentHit --> bedoc
+controller --> cache : 5. SetStringAsync(key, result)
+cache o-- entry
+
+note right of cache
+  A second identical request finds the entry
+  (cache hit) and skips steps 3-4.
+  With SearchCache=false the controller skips
+  steps 2 and 5 and Redis is not used.
+end note
+
+@enduml

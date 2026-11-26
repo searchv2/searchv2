@@ -1,0 +1,137 @@
+name: searchv2
+
+# Local stack for the searchv2 services. Each service also has a standalone
+# Dockerfile in its own repo; this file just wires them together with a shared
+# PostgreSQL index and a read-only mount of the document corpus.
+#
+# Set POSTGRES_PASSWORD (e.g. `export POSTGRES_PASSWORD=$(openssl rand -hex 24)`)
+# before any command; it is only applied when the postgres-data volume is created.
+#
+#   DOCS_DIR=../seData/medium docker compose up --build   # serve the API + Blazor UI
+#   docker compose run --rm indexer && docker compose restart redis-cache
+#                                                       # rebuild the index and clear cached results
+#   docker compose run --rm console                       # interactive search client
+#
+# Image version comes from .env (VERSION). Each build is tagged both
+# searchv2-<svc>:${VERSION} (via image:) and searchv2-<svc>:latest (via
+# build.tags). Bump VERSION in .env and SearchUtilities.csproj together.
+
+services:
+  # One-shot job, not a long-running service. Left out of the default `up` -
+  # run it explicitly:  docker compose run --rm indexer
+  indexer:
+    profiles: ["index"]
+    build:
+      context: ./indexer
+      args:
+        VERSION: ${VERSION:-1.0.1}
+      tags:
+        - searchv2-indexer:latest
+    image: searchv2-indexer:${VERSION:-1.0.1}
+    environment:
+      INDEXER_FOLDER: /data/docs
+      SEARCH_DB_CONNECTION: Host=postgres;Port=5432;Database=searchengine;Username=searcher;Gss Encryption Mode=Disable
+      SEARCH_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${DOCS_DIR:-../seData/medium}:/data/docs:ro
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: searcher
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: searchengine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U searcher -d searchengine"]
+      interval: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+  # Two identical, stateless replicas behind the load balancer. Both read the
+  # same PostgreSQL index, so random balancing needs no session affinity.
+  search-api-1: &search-api
+    build:
+      context: ./SearchAPI
+      args:
+        VERSION: ${VERSION:-1.0.1}
+      tags:
+        - searchv2-search-api:latest
+    image: searchv2-search-api:${VERSION:-1.0.1}
+    environment:
+      SEARCH_DB_CONNECTION: Host=postgres;Port=5432;Database=searchengine;Username=searcher;Gss Encryption Mode=Disable
+      SEARCH_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      INSTANCE_NAME: search-api-1
+      RedisConnectionString: redis-cache:6379
+    depends_on:
+      - redis-cache
+      - postgres
+    volumes:
+      - ${DOCS_DIR:-../seData/medium}:/data/docs:ro
+
+  search-api-2:
+    <<: *search-api
+    environment:
+      SEARCH_DB_CONNECTION: Host=postgres;Port=5432;Database=searchengine;Username=searcher;Gss Encryption Mode=Disable
+      SEARCH_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      INSTANCE_NAME: search-api-2
+      RedisConnectionString: redis-cache:6379
+
+  redis-cache:
+    image: redis:7-alpine
+
+  # Our own load balancer: single public entry point on 5071, redirects each
+  # request (HTTP 307) to a randomly chosen backend.
+  load-balancer:
+    build:
+      context: ./LoadBalancer
+      args:
+        VERSION: ${VERSION:-1.0.1}
+      tags:
+        - searchv2-load-balancer:latest
+    image: searchv2-load-balancer:${VERSION:-1.0.1}
+    ports:
+      - "5071:8080"
+    environment:
+      LoadBalancing__Backends__0: http://search-api-1:8080
+      LoadBalancing__Backends__1: http://search-api-2:8080
+    depends_on:
+      - search-api-1
+      - search-api-2
+
+  console:
+    build:
+      context: ./ConsoleSearch
+      args:
+        VERSION: ${VERSION:-1.0.1}
+      tags:
+        - searchv2-console:latest
+    image: searchv2-console:${VERSION:-1.0.1}
+    environment:
+      SEARCH_API_BASE_URL: http://load-balancer:8080
+    depends_on:
+      - load-balancer
+    profiles: ["cli"]
+    stdin_open: true
+    tty: true
+
+  blazor:
+    build:
+      context: ./blazor-client-gui
+      args:
+        VERSION: ${VERSION:-1.0.1}
+      tags:
+        - searchv2-blazor:latest
+    image: searchv2-blazor:${VERSION:-1.0.1}
+    ports:
+      - "5080:8080"
+    environment:
+      SearchApi__BaseUrl: http://load-balancer:8080
+    depends_on:
+      - load-balancer
+
+volumes:
+  postgres-data:

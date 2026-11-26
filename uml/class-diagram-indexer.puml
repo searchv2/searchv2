@@ -1,0 +1,71 @@
+@startuml class-diagram-indexer
+title SearchV2 - Class diagram: Indexer (one-shot job that rebuilds the index)
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 30
+skinparam ranksep 40
+hide empty members
+
+' Same style as class-diagram.puml; the indexer is the only writer of the index.
+
+package "Indexer" as indexer {
+  class Program <<entry point>>
+  package "Application" as idxapp {
+    interface IIndexingService {
+      +Reindex() : IndexStatistics
+    }
+    class IndexingService
+  }
+  package "Core" as idxcore {
+    interface IDocumentSource {
+      +EnumerateDocuments() : IEnumerable<SourceDocument>
+    }
+    interface IIndexStore {
+      +GetAllWords() : Dictionary<string, int>
+      +InsertDocument(doc)
+      +InsertAllWords(words)
+      +InsertAllOccurrences(docId, wordIds)
+    }
+    class SourceDocument <<record>> {
+      +Url : string
+      +CreatedAt : string
+      +Content : string
+    }
+    class IndexedDocument {
+      +Id : int
+      +Url : string
+      +IndexedAt : string
+      +CreatedAt : string
+    }
+    class IndexStatistics {
+      +DocumentCount : int
+      +DistinctWordCount : int
+      +Elapsed : TimeSpan
+    }
+  }
+  package "Infrastructure" as idxinfra {
+    class FileSystemDocumentSource
+    class PostgresIndexStore
+    class InMemoryIndexStore
+  }
+}
+
+class "Reverse index (PostgreSQL: document, word, occ)" as db <<database>>
+class "Document corpus (.txt files)" as fs <<file system>>
+
+IndexingService .up.|> IIndexingService
+FileSystemDocumentSource .up.|> IDocumentSource
+PostgresIndexStore .up.|> IIndexStore
+InMemoryIndexStore .up.|> IIndexStore
+
+Program --> IIndexingService
+IndexingService --> IIndexStore
+IndexingService --> IDocumentSource
+IndexingService ..> IndexStatistics
+IndexingService ..> IndexedDocument
+IDocumentSource ..> SourceDocument
+
+FileSystemDocumentSource --> fs : read-only
+PostgresIndexStore --> db : write-only
+
+@enduml

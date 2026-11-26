@@ -1,0 +1,8 @@
+**/bin
+**/obj
+**/.git
+**/nupkg
+db
+LoadBalancer
+LoadBalancer.Tests
+ConsoleSearch

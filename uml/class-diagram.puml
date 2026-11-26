@@ -1,0 +1,146 @@
+@startuml class-diagram
+title SearchV2 - Class diagram: web client and SearchAPI (see class-diagram-indexer.puml for the indexer)
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 25
+skinparam ranksep 35
+hide empty members
+
+' Style follows Modul 2 "Class diagram - version 2": one package per program, interfaces as
+' <<interface>>, implementations generalised to them, read-only data access labelled.
+' SearchApiClient plays the SearchProxy role of the slides. The console client is out of scope.
+
+package "BlazorClientGui" as blazor {
+  class SearchApiClient <<proxy>> {
+    +SearchAsync(query, caseSensitive) : (SearchResult, ServedBy)
+    +GetDocumentContentAsync(documentId) : string
+  }
+}
+
+package "SearchAPI" as api {
+  package "Api layer" as apilayer {
+    class SearchController {
+      +SearchCacheFlag : string {static}
+      +Post(request) : ActionResult<SearchResult>
+    }
+    class DocumentsController {
+      +GetContent(id) : ActionResult
+    }
+    class SearchContractMapper <<static>> {
+      +ToContract(outcome) : SearchResult
+    }
+  }
+  package "Application layer" as applayer {
+    interface ISearchService {
+      +Search(query, caseSensitive) : SearchOutcome
+    }
+    interface IDocumentService {
+      +GetContent(documentId) : string
+    }
+    class SearchService
+    class DocumentService
+  }
+  package "Core layer" as core {
+    interface IDocumentIndex {
+      +GetWordIds(query, ignored) : List<int>
+      +GetDocuments(wordIds) : List<KeyValuePair>
+      +GetDocDetails(docIds) : Dictionary<int, Document>
+      +GetMissingWords(docIds, wordIds) : Dictionary
+    }
+    interface IDocumentContentReader {
+      +TryRead(url) : string
+    }
+    class SearchOutcome {
+      +Query : IReadOnlyList<string>
+      +TotalHits : int
+      +IgnoredWords : IReadOnlyList<string>
+      +Elapsed : TimeSpan
+    }
+    class SearchHit {
+      +MatchedWords : int
+      +MissingWords : IReadOnlyList<string>
+    }
+    class Document {
+      +Id : int
+      +Url : string
+      +IndexedAt : string
+      +CreatedAt : string
+    }
+    SearchOutcome "1" *-- "0..*" SearchHit
+    SearchHit --> "1" Document
+  }
+  package "Infrastructure layer" as infra {
+    class PostgresDocumentIndex
+    class InMemoryDocumentIndex
+    class FileDocumentContentReader
+  }
+  interface IDistributedCache <<Microsoft.Extensions.Caching>>
+  interface IFeatureManager <<Microsoft.FeatureManagement>>
+}
+
+package "Shared: SearchUtilities (NuGet)" as shared {
+  class SearchRequest <<record>> {
+    +Query : string[]
+    +CaseSensitive : bool
+  }
+  class SearchResult {
+    +Query : string[]
+    +Hits : int
+    +DocumentHits : List<DocumentHit>
+    +Ignored : List<string>
+    +TimeUsed : TimeSpan
+  }
+  class DocumentHit {
+    +NoOfHits : int
+    +Missing : List<string>
+  }
+  class BEDocument {
+    +mId : int
+    +mUrl : string
+  }
+  SearchResult "1" *-- "0..*" DocumentHit
+  DocumentHit --> "1" BEDocument
+}
+
+class "Reverse index (PostgreSQL: document, word, occ)" as db <<database>>
+class "Redis search result cache" as redis <<database>>
+class "Document corpus (.txt files)" as fs <<file system>>
+
+' --- generalisation
+SearchService .up.|> ISearchService
+DocumentService .up.|> IDocumentService
+PostgresDocumentIndex .up.|> IDocumentIndex
+InMemoryDocumentIndex .up.|> IDocumentIndex
+FileDocumentContentReader .up.|> IDocumentContentReader
+
+' --- client to API (HTTP/JSON)
+SearchApiClient -[#blue]-> SearchController : POST /api/search\nHTTP/JSON
+SearchApiClient -[#blue]-> DocumentsController : GET /api/documents/{id}\nHTTP
+SearchApiClient ..> SearchRequest
+SearchApiClient ..> SearchResult
+
+' --- inside SearchAPI (onion: dependencies point inwards)
+SearchController --> ISearchService
+SearchController --> IDistributedCache : cache-aside
+SearchController --> IFeatureManager : SearchCache flag
+SearchController ..> SearchContractMapper
+SearchContractMapper ..> SearchResult
+DocumentsController --> IDocumentService
+SearchService --> IDocumentIndex
+SearchService --> IDocumentContentReader
+DocumentService --> IDocumentIndex
+DocumentService --> IDocumentContentReader
+SearchService ..> SearchOutcome
+
+' --- data access
+PostgresDocumentIndex --> db : read-only
+FileDocumentContentReader --> fs : read-only
+IDistributedCache --> redis : read / write
+
+note bottom of shared
+  Tokenizer and TextNormalizer (static helpers in
+  SearchUtilities) are used by SearchService and
+  by the indexer when splitting text into words.
+end note
+
+@enduml

@@ -1,0 +1,17 @@
+bin/
+obj/
+
+# Separate repositories that live next to this workspace (clone them here, see README)
+/SearchAPI/
+/indexer/
+/blazor-client-gui/
+/ConsoleSearch/
+/search-utilities/
+
+# Local-only
+.env
+.claude/
+.archify/
+
+# Screenshots of the teachers' slides (course material, not our work)
+/c4reference/image*.png

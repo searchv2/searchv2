@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: caching
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c"]
+        args: ['exec redis-server --save "" --appendonly no --requirepass "$(cat /run/secrets/redis/password)"']
+        ports:
+        - containerPort: 6379
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+        volumeMounts:
+        - name: credentials
+          mountPath: /run/secrets/redis
+          readOnly: true
+      volumes:
+      - name: credentials
+        secret:
+          secretName: redis-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: caching
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
