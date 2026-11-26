@@ -39,6 +39,8 @@ The following sections explain the architecture and equivalent manual steps.
 
 See the [C4 container and startup interaction diagrams](../c4reference/kubernetes-startup-c4.md)
 for the services, communication paths, and `start.sh` execution order.
+How the database could be scaled (read replicas and z-axis sharding) is described in
+[DATABASE-SCALING.md](DATABASE-SCALING.md).
 
 ```mermaid
 flowchart LR
