@@ -1,9 +1,9 @@
 # Project definition: SearchV2 operating environment (draft)
 
-> **Status: unconfirmed draft.** The course required an approved one-page project definition by
-> 2026-11-17. This text was reconstructed from what the repository actually implements, so it can be
-> checked against the version you handed in. If an approved definition exists, replace this file with
-> it, and note any differences from what was built.
+> **Status: draft.** This text was reconstructed from what the repository actually implements. The
+> teachers have approved the project scope and allow changes until the exam, so it is a summary of what was
+> built, not the approval document. If you keep an approved definition, compare the two and note any
+> differences.
 
 ## System
 

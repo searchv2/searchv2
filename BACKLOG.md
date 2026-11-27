@@ -61,7 +61,7 @@ All eight items are done. Each has a short "what was done" note: where to find i
    - **Open:** the empty-corpus guard was only tested against stubs; a Redis outage under load and a rollback under real traffic were not tested. An obsolete copy of Grafana, Loki, Prometheus and the collector remains in the `searchv2` namespace (unused, not deleted).
 
 ### Tier 2: should do (cheap and strengthens the story)
-All six items are done except the part that only you can do (item 6). Same format as Tier 1: what was done, why, where, how it was checked and what is still open. These changes are in this repository only.
+All six items are done. Same format as Tier 1: what was done, why, where, how it was checked and what is still open. These changes are in this repository only.
 
 1. **Decision notes** (modules 1, 8, 9, 11). Status: **DONE.** Requirement: a paragraph each on database in Kubernetes, synchronous design, manifests instead of the guide's charts, the `hostPath` volume, and build versus buy.
    - **Why:** these are the questions an architecture exam asks ("why did you choose this, and what would you do in production"). The code shows what exists; only a written reason shows that it was a choice. Each note names the cost of the choice and the production alternative, because that is the second half of every such question.
@@ -95,14 +95,14 @@ All six items are done except the part that only you can do (item 6). Same forma
    - **Where:** `k8s/DECISIONS.md` ("Redis is not scaled out").
    - **Open:** documented only; not tried on the cluster.
 
-6. **Confirm the project definition** (section 0). Status: **PARTLY DONE: needs you.** Requirement: confirm the 2026-11-17 definition was handed in and approved.
+6. **Confirm the project definition** (section 0). Status: **DONE.** Requirement: confirm the 2026-11-17 definition was handed in and approved. The student confirmed that the teachers approved the project and allow changes until the exam.
    - **Why:** the exam says the project is the basis for the oral exam and that the definition must be agreed with the teachers. If what was approved differs from what was built, you should know before the exam.
-   - **What was done:** a draft one-page definition reconstructed from what the repository implements (features, what is out of scope, how it affects the architecture), clearly marked as unconfirmed.
+   - **What was done:** a draft one-page definition reconstructed from what the repository implements (features, what is out of scope, how it affects the architecture), kept as a summary of what was built (it is not the approval document).
    - **Where:** `PROJECT-DEFINITION.md`.
-   - **Open:** only you can say whether a definition was handed in and approved. Compare it with the real one and replace or correct the draft.
+   - **Open:** nothing required. If you keep the approved definition, compare it with this summary before the exam.
 
 ### Extension: indexing pipeline with a message bus (chosen 2026-11-27)
-The exam description names "Indexing" as a pipeline (y-scale) and "Servicebus (e.g. RabbitMQ)" as extension examples, and the module 1 principle *asynchronous design* had been skipped. Chosen among four options (pipeline and bus, pipeline plus more document types, search agents, snippets/score/termnet). **Status: DONE and tested live; on feature branches `indexing-pipeline` (in `searchv2` and `indexer`), not merged into `main` yet.** Changing the scope after the 2026-11-17 deadline needs the teachers' agreement, which is why `main` was left alone.
+The exam description names "Indexing" as a pipeline (y-scale) and "Servicebus (e.g. RabbitMQ)" as extension examples, and the module 1 principle *asynchronous design* had been skipped. Chosen among four options (pipeline and bus, pipeline plus more document types, search agents, snippets/score/termnet). **Status: DONE, tested live and merged into `main` (in `searchv2` and `indexer`).** The teachers have approved the scope; the student is free to extend the project until the exam.
 
 1. **Indexing as a three-stage pipeline over RabbitMQ** (modules 1 and 3, exam extension).
    - **Why:** the indexer was one process that handed out ids from in-memory counters, so it could not be scaled; indexing is also the heaviest work in the system. Splitting it into stages joined by queues gives the exam's y-scale and x-scale of the stages, closes the asynchronous-design principle, and shows a message bus with real failure handling. The three stages (crawler, tokenizer, writer) were chosen because they have different costs, so the one that is slow can be scaled alone; measurement confirmed that (see Checked).
@@ -138,8 +138,8 @@ Source: `eksamensprojektet_v1_0.pdf` (module 5 folder). The project itself is no
 - [x] **Caching:** cache-aside with write-up and hardening done (`k8s/CACHING.md`); live-cluster check and measured hit ratio pending.
 - [x] **Exam demo:** re-verified and a demo script written (`k8s/DEMO.md`).
 - [x] **UML diagrams for the exam:** class, object and deployment diagrams exist in `uml/` (PlantUML sources plus PNG/SVG). The C4 diagram is separate.
-- [~] **Project definition (draft in `PROJECT-DEFINITION.md`, needs your confirmation):** max one page, approved by the teachers. The deadline for approval was 2026-11-17 (draft recommended 2026-11-03). Confirm whether this was done.
-- [~] **Extension feature:** the indexing pipeline with a RabbitMQ service bus was chosen and built on 2026-11-27 (see the extension section in Priorities). Termnet/synonyms, snippets and scoring stay descoped. Confirm that the teachers agree, because the approval deadline passed.
+- [x] **Project definition:** approved by the teachers (confirmed by the student); changes are allowed until the exam. `PROJECT-DEFINITION.md` summarises what was built.
+- [~] **Extension feature:** the indexing pipeline with a RabbitMQ service bus was chosen and built on 2026-11-27 (see the extension section in Priorities). Termnet/synonyms, snippets and scoring stay descoped. The teachers have approved this scope.
 
 Examples of extensions named in the project description (choose what fits the project definition):
 Termnet (synonym search, descoped), Indexing (pipeline / multiple databases / more document types), Snippets in results (descoped), Service bus (e.g. RabbitMQ, to consider), Search agents with notifications.
