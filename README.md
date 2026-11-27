@@ -14,9 +14,9 @@ The Kubernetes deployment excludes LoadBalancer and ConsoleSearch.
 
 ## Workspace layout
 
-This repository holds the deployment, documentation and cross-project tests. The application
-code lives in separate repositories that must be cloned next to it (same parent folder, these
-folder names):
+This repository holds the deployment, documentation and course material. Each project lives
+in its own repository, with its tests under `tests/`. Clone them next to this one (same parent
+folder, these folder names):
 
 | Folder | Repository |
 | --- | --- |
@@ -25,7 +25,7 @@ folder names):
 | `blazor-client-gui/` | https://github.com/searchv2/blazor-client-gui |
 | `search-utilities/` | https://github.com/searchv2/search-utilities |
 | `ConsoleSearch/` | https://github.com/searchv2/console-search (not deployed to Kubernetes) |
+| `LoadBalancer/` | https://github.com/searchv2/load-balancer (compose only, not deployed to Kubernetes) |
 
-Other folders here: `k8s/` (manifests and start script), `uml/` (UML diagrams), `c4reference/`
-(C4 diagrams), `SearchAPI.Tests/` and `blazor-client-gui.Tests/` (tests for those projects),
-`LoadBalancer/` (own load balancer, compose only) and `BACKLOG.md` (course-compliance backlog).
+Folders in this repository: `k8s/` (manifests and start script), `uml/` (UML diagrams),
+`c4reference/` (C4 diagrams), `docker-compose.yml` and `BACKLOG.md` (course-compliance backlog).

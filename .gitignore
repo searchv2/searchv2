@@ -6,6 +6,7 @@ obj/
 /indexer/
 /blazor-client-gui/
 /ConsoleSearch/
+/LoadBalancer/
 /search-utilities/
 
 # Local-only

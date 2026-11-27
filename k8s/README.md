@@ -436,7 +436,7 @@ and drops a temporary schema; without `SEARCH_DB_TEST_CONNECTION` it is skipped)
 ```sh
 kubectl --context searchv2 port-forward --namespace database svc/postgresql-db 5433:5432 &
 SEARCH_DB_TEST_CONNECTION="Host=localhost;Port=5433;Database=searchengine;Username=searcher;Password=<password>" \
-  dotnet test SearchAPI.Tests/SearchAPI.Tests.csproj
+  dotnet test SearchAPI/tests/SearchAPI.Tests/SearchAPI.Tests.csproj
 ```
 
 ### Active searches
@@ -497,8 +497,8 @@ and the telemetry smoke test do not create browser samples.
 Focused checks, which do not send live searches or run the smoke test:
 
 ```sh
-node blazor-client-gui.Tests/search-timing.test.mjs
-dotnet test blazor-client-gui.Tests/BlazorClientGui.Tests.csproj
+node blazor-client-gui/tests/BlazorClientGui.Tests/search-timing.test.mjs
+dotnet test blazor-client-gui/tests/BlazorClientGui.Tests/BlazorClientGui.Tests.csproj
 ```
 
 The JavaScript checks simulate submission, DOM completion, frame scheduling,
@@ -699,8 +699,8 @@ current code: Redis cache with fallback, feature flag, rollback settings and the
   HTTP 200 through its Service.
 * `python3 k8s/smoke-test.py` passed: real search requests, a positive API request metric and
   database operation metric in Prometheus, and matching request logs in Loki.
-* Unit tests: `SearchAPI.Tests` 6 of 6 (including the PostgreSQL test, run against the cluster
-  database), `LoadBalancer.Tests` 4 of 4, `blazor-client-gui.Tests` 1 of 1 plus 7 of 7 JavaScript
+* Unit tests: `SearchAPI/tests` 6 of 6 (including the PostgreSQL test, run against the cluster
+  database), `LoadBalancer/tests` 4 of 4, `blazor-client-gui/tests` 1 of 1 plus 7 of 7 JavaScript
   timing tests. `python3 k8s/test-start.py` (startup order and failure handling against stubs): 5 of 5.
 
 **Checked on the live cluster**
