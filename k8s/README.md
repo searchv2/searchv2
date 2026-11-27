@@ -2,7 +2,8 @@
 
 This follows the neighbouring `MK-TEST` project: local Docker images loaded into
 Minikube, plain Deployments and Services, two API replicas, and rolling updates.
-It runs SearchAPI, the Blazor GUI, and an indexer Job. The LoadBalancer and
+It runs SearchAPI, the Blazor GUI, and an indexing pipeline (an indexer Job, tokenizer and writer
+workers, and RabbitMQ between them). The LoadBalancer and
 ConsoleSearch projects are excluded from both image builds and deployments.
 
 ## Start with one command
@@ -40,7 +41,8 @@ The following sections explain the architecture and equivalent manual steps.
 See the [C4 container and startup interaction diagrams](../c4reference/kubernetes-startup-c4.md)
 for the services, communication paths, and `start.sh` execution order.
 How the database could be scaled (read replicas and z-axis sharding) is described in
-[DATABASE-SCALING.md](DATABASE-SCALING.md).
+[DATABASE-SCALING.md](DATABASE-SCALING.md). The indexing pipeline and its message bus are described in
+[INDEXING-PIPELINE.md](INDEXING-PIPELINE.md).
 
 ```mermaid
 flowchart LR
@@ -49,7 +51,12 @@ flowchart LR
         API[SearchAPI Service]
         A[API pod 1]
         B[API pod 2]
-        Job[Indexer Job]
+        Job[Indexer Job - stage 1]
+        Tok[Tokenizer pods - stage 2]
+        Wri[Writer pods - stage 3]
+    end
+    subgraph messaging [namespace: messaging]
+        MQ[(RabbitMQ)]
     end
     subgraph caching [namespace: caching]
         Cache[(Redis cache)]
@@ -69,8 +76,12 @@ flowchart LR
     API --> B
     A --> Cache
     B --> Cache
-    Job --> DB
-    Docs[Document snapshot on node] --> Job
+    Job -->|publish documents| MQ
+    MQ -->|discovered| Tok
+    Tok -->|tokenized| MQ
+    MQ -->|tokenized| Wri
+    Wri --> DB
+    Docs[Document snapshot on node] --> Tok
     Docs --> A
     Docs --> B
     DB --> A
@@ -90,9 +101,10 @@ teacher's C4 diagram (`k8s/namespaces.yaml`):
 
 | Namespace | Workloads |
 | --- | --- |
-| `searchv2` | Blazor, SearchAPI, indexer Job |
+| `searchv2` | Blazor, SearchAPI, the indexer Job and the tokenizer and writer Deployments |
 | `devops` | OpenTelemetry Collector, Prometheus, Loki, Grafana and their ConfigMaps |
 | `caching` | Redis |
+| `messaging` | RabbitMQ, the message bus of the indexing pipeline |
 | `database` | PostgreSQL from the Bitnami Helm chart (release `postgresql-db`), holding the search index |
 
 Calls inside a namespace use the short Service name (`search-api:8080`,
@@ -109,13 +121,17 @@ Redis password exists in both `caching` and `searchv2`, and the `searcher` passw
   `X-Served-By` identifies the API pod that handled a request.
 * Blazor runs server-side and calls `http://search-api:8080` through cluster DNS.
   It has one replica because interactive server circuits live in that process.
-* The indexer is a manually triggered, single-run Job. It drops and recreates
-  the `document`, `word` and `occ` tables in the PostgreSQL database
-  `searchengine` as user `searcher`. Both API replicas read the same tables over
-  the network with pooled connections. The indexer and API see the source
-  documents at the identical `/data/docs` path, because file paths are stored in
-  the index. The document snapshot is mounted read-only into the pods.
-* Only the indexer changes the index tables. Reindex with API replicas stopped.
+* Indexing is a pipeline of three stages connected by RabbitMQ queues
+  ([INDEXING-PIPELINE.md](INDEXING-PIPELINE.md)). The manually triggered `indexer` Job is stage 1: it
+  drops and recreates the `document`, `word` and `occ` tables in the PostgreSQL database
+  `searchengine` as user `searcher`, publishes one message per document and waits until they are stored.
+  The `indexer-tokenizer` pods (stage 2) read the files and extract the words, and the `indexer-writer`
+  pods (stage 3) write each document to PostgreSQL. Both are scaled with `kubectl scale`. Both API
+  replicas read the same tables over the network with pooled connections. The tokenizers and the API see
+  the source documents at the identical `/data/docs` path, because file paths are stored in the index.
+  The document snapshot is mounted read-only into the pods.
+* Only the writers (and the Job, when it resets the tables) change the index tables. Reindex with API
+  replicas stopped.
 * Both API replicas share Redis search results (cache-aside, one-minute sliding TTL
   with a five-minute absolute limit; Redis evicts with `allkeys-lru` above 64 MB; see
   [CACHING.md](CACHING.md)). `start.sh` generates a Redis password in a Kubernetes Secret,
@@ -237,6 +253,15 @@ done
 kubectl --context searchv2 apply -f k8s/redis.yaml
 kubectl --context searchv2 -n caching rollout status deployment/redis --timeout=300s
 
+# RabbitMQ, the message bus of the indexing pipeline: Secret in messaging and a copy for the workers.
+openssl rand -hex 24 | tr -d '\n' > /tmp/searchv2-rabbitmq-password
+for namespace in messaging searchv2; do
+  kubectl --context searchv2 -n "$namespace" create secret generic rabbitmq-credentials \
+    --from-file=password=/tmp/searchv2-rabbitmq-password
+done
+kubectl --context searchv2 apply -f k8s/rabbitmq.yaml
+kubectl --context searchv2 -n messaging rollout status deployment/rabbitmq --timeout=300s
+
 # PostgreSQL (Guide M11.02): passwords live in a Secret, not in custom-values.yaml.
 openssl rand -hex 24 | tr -d '\n' > /tmp/searchv2-postgres-password
 openssl rand -hex 24 | tr -d '\n' > /tmp/searchv2-searcher-password
@@ -290,7 +315,10 @@ Do this initial indexing step once. For subsequent reindexing use the procedure
 below, which first stops the API.
 
 ```sh
+# Creates the indexer Job and the tokenizer and writer Deployments. The Job publishes one message per
+# document and finishes when the workers have stored them all, so the workers must be running.
 kubectl --context searchv2 apply -f k8s/indexer.yaml
+kubectl --context searchv2 -n searchv2 rollout status deployment/indexer-tokenizer deployment/indexer-writer --timeout=300s
 kubectl --context searchv2 -n searchv2 wait --for=condition=complete job/indexer --timeout=1800s
 kubectl --context searchv2 -n searchv2 logs job/indexer
 
@@ -531,8 +559,9 @@ to about 5 minutes late.
 
 ## Reindex safely
 
-Reindexing **replaces the existing index**. The current indexer drops/recreates
-tables and is not safe to run alongside queries. Leave Blazor open only if you
+Reindexing **replaces the existing index**. The indexer Job drops/recreates
+tables and is not safe to run alongside queries. The tokenizer and writer workers must be
+running (they idle between runs). Leave Blazor open only if you
 accept search failures during this maintenance window.
 
 ```sh
@@ -540,6 +569,7 @@ kubectl --context searchv2 -n searchv2 scale deployment/search-api --replicas=0
 kubectl --context searchv2 -n searchv2 wait --for=delete pod -l app=search-api --timeout=120s
 # If source files changed, refresh the node snapshot here (see below).
 kubectl --context searchv2 -n searchv2 delete job indexer --ignore-not-found
+# Also resets the worker Deployments to the 2 + 2 replicas in the file; scale them again afterwards if needed.
 kubectl --context searchv2 apply -f k8s/indexer.yaml
 kubectl --context searchv2 -n searchv2 wait --for=condition=complete job/indexer --timeout=1800s
 kubectl --context searchv2 -n searchv2 logs job/indexer

@@ -28,11 +28,12 @@ primary:
   persistence:
     size: 2Gi
   # Explicit instead of the chart's default "nano" preset (150m CPU, 192 MiB), which throttled the
-  # database during the load test. The memory limit is also a ceiling the node must be able to give.
+  # database during the load test. There is deliberately no CPU limit (like the other manifests):
+  # a 1 CPU limit capped the indexing pipeline at the same speed for 1 and 4 workers, see
+  # INDEXING-PIPELINE.md. The memory limit is a ceiling the node must be able to give.
   resources:
     requests:
       cpu: 250m
       memory: 256Mi
     limits:
-      cpu: "1"
       memory: 512Mi

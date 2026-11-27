@@ -9,6 +9,13 @@ scrape_configs:
   - job_name: postgresql
     static_configs:
       - targets: ['postgresql-db-metrics.database.svc.cluster.local:9187']
+  - job_name: rabbitmq
+    # The detailed endpoint has per-queue metrics; the default one only has totals.
+    metrics_path: /metrics/detailed
+    params:
+      family: [queue_coarse_metrics, queue_consumer_count]
+    static_configs:
+      - targets: ['rabbitmq.messaging.svc.cluster.local:15692']
   - job_name: prometheus
     static_configs:
       - targets: ['localhost:9090']

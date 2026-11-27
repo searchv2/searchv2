@@ -20,10 +20,10 @@ Open Grafana at <http://localhost:3000/d/searchv2> (user `admin`) and the GUI at
 
 Show the C4 container diagram and the UML deployment diagram.
 
-- Four namespaces: `searchv2` (GUI, API, indexer), `caching` (Redis), `database` (PostgreSQL),
+- Five namespaces: `searchv2` (GUI, API, indexing workers), `caching` (Redis), `messaging` (RabbitMQ), `database` (PostgreSQL),
   `devops` (monitoring).
 - The API is stateless and runs two replicas (scale out, not up). The GUI is one replica
-  because Blazor Server keeps state in its circuit. The indexer is a one-shot Job.
+  because Blazor Server keeps state in its circuit. Indexing is a three-stage pipeline (indexer Job, tokenizer and writer Deployments) with RabbitMQ in the `messaging` namespace.
 - Point at the decision log in the C4 document for why it is split this way.
 
 ## 2. It runs (1 min)
@@ -93,6 +93,13 @@ today, because the bottleneck is the database path (the API used about 0.16 core
 cache off). Then open `k8s/DATABASE-SCALING.md`: read replicas (x-axis) and sharding by document
 (z-axis) with a scatter/gather router in the API, and the downsides.
 
+The indexing side does scale. Open the RabbitMQ UI (http://localhost:15672, started by `start.sh`) or the
+Grafana panel "Indexing queues: messages waiting" and say: indexing is a pipeline, three stages joined by queues,
+so each stage scales on its own. Show `INDEXING-PIPELINE.md`, "Results": 24.6 s with one tokenizer and one
+writer, 8.4 s with eight of each, and the finding that the writers are the slow stage (one tokenizer with four
+writers is almost as fast as four and four). Optional live step, which REPLACES the index and needs the API
+stopped first: `./k8s/pipeline-scaling.sh 1:1 4:4`.
+
 ## Questions to be ready for
 
 | Question | Where the answer is |
@@ -105,6 +112,8 @@ cache off). Then open `k8s/DATABASE-SCALING.md`: read replicas (x-axis) and shar
 | Why plain manifests and not the guide's Helm charts? Build or buy? | `DECISIONS.md` |
 | Why is the document volume a hostPath, and what in production? | `DECISIONS.md` |
 | How would Redis scale? | `DECISIONS.md` ("Redis is not scaled out") |
+| Why a message bus, why RabbitMQ, what if a worker dies or a message is bad? | `INDEXING-PIPELINE.md` ("Decisions and why", "Failures") |
+| Which stage is the bottleneck and how do you know? | `INDEXING-PIPELINE.md` ("Results") |
 | How do you know when something is wrong? | `README.md` ("Alerting"), the Grafana panel "Firing alerts" |
 | What happens when a pod dies / Redis dies / a release fails? | steps 4 and 5 above |
 | Secrets versus ConfigMaps? | C4 document, decision log point 4 |

@@ -1,0 +1,6 @@
+tokenizers  writers     seconds    docs/s
+1           1              21.4       142
+2           2              16.8       181
+4           4              20.1       151
+1           4              22.2       137
+4           1              23.6       129

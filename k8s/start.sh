@@ -37,7 +37,7 @@ for target in indexer search-api blazor; do
   docker save "searchv2-$target:1.0.1" | minikube image load -p searchv2 -
 done
 # Load through the host because this machine's Minikube node cannot resolve Docker Hub.
-for image in redis:7-alpine bitnami/postgresql:latest bitnami/postgres-exporter:latest otel/opentelemetry-collector-contrib:0.123.0 prom/prometheus:v3.4.1 grafana/loki:3.5.1 grafana/grafana:12.0.2; do
+for image in redis:7-alpine rabbitmq:4-management bitnami/postgresql:latest bitnami/postgres-exporter:latest otel/opentelemetry-collector-contrib:0.123.0 prom/prometheus:v3.4.1 grafana/loki:3.5.1 grafana/grafana:12.0.2; do
   docker pull "$image"
   minikube image load -p searchv2 "$image"
 done
@@ -58,6 +58,16 @@ if [[ -z "$secret" || -z "$copy" ]]; then
     kubectl --context searchv2 -n "$namespace" create secret generic redis-credentials --from-file="password=$work_dir/redis-password"
   done
 fi
+# RabbitMQ (messaging) and the pipeline workers and Job (searchv2) share one password, like Redis above.
+secret=$(kubectl --context searchv2 -n messaging get secret rabbitmq-credentials --ignore-not-found -o name)
+copy=$(kubectl --context searchv2 -n searchv2 get secret rabbitmq-credentials --ignore-not-found -o name)
+if [[ -z "$secret" || -z "$copy" ]]; then
+  openssl rand -hex 24 | tr -d '\n' > "$work_dir/rabbitmq-password"
+  for namespace in messaging searchv2; do
+    kubectl --context searchv2 -n "$namespace" delete secret rabbitmq-credentials --ignore-not-found
+    kubectl --context searchv2 -n "$namespace" create secret generic rabbitmq-credentials --from-file="password=$work_dir/rabbitmq-password"
+  done
+fi
 secret=$(kubectl --context searchv2 -n database get secret postgresql-credentials --ignore-not-found -o name)
 if [[ -z "$secret" ]]; then
   openssl rand -hex 24 | tr -d '\n' > "$work_dir/postgres-password"
@@ -73,6 +83,9 @@ if [[ -z "$secret" ]]; then
   kubectl --context searchv2 -n searchv2 create secret generic postgresql-credentials --from-file="password=$work_dir/searcher-password"
 fi
 kubectl --context searchv2 apply -f k8s/redis.yaml
+kubectl --context searchv2 apply -f k8s/rabbitmq.yaml
+kubectl --context searchv2 -n messaging rollout restart deployment/rabbitmq
+kubectl --context searchv2 -n messaging rollout status deployment/rabbitmq --timeout=300s
 helm repo add bitnami https://charts.bitnami.com/bitnami --force-update
 helm --kube-context searchv2 upgrade --install postgresql-db bitnami/postgresql --version 18.12.17 \
   --namespace database --values k8s/postgresql/custom-values.yaml --wait --timeout 5m
@@ -88,7 +101,13 @@ kubectl --context searchv2 -n searchv2 delete job indexer --ignore-not-found --w
 tar -C "$docs_dir" -czf "$work_dir/documents.tar.gz" .
 minikube cp -p searchv2 "$work_dir/documents.tar.gz" /tmp/searchv2-docs.tar.gz
 minikube ssh -p searchv2 -- 'sudo rm -rf /data/searchv2-docs && sudo mkdir -p /data/searchv2-docs && sudo tar -xzf /tmp/searchv2-docs.tar.gz -C /data/searchv2-docs && sudo rm /tmp/searchv2-docs.tar.gz'
+# The indexing pipeline: the indexer Job publishes one message per document, and the tokenizer and
+# writer Deployments (stages 2 and 3) do the work. Restart the workers so they use the freshly loaded image.
 kubectl --context searchv2 apply -f k8s/indexer.yaml
+kubectl --context searchv2 -n searchv2 rollout restart deployment/indexer-tokenizer deployment/indexer-writer
+for worker in indexer-tokenizer indexer-writer; do
+  kubectl --context searchv2 -n searchv2 rollout status "deployment/$worker" --timeout=300s
+done
 kubectl --context searchv2 -n searchv2 wait --for=condition=complete job/indexer --timeout=1800s
 # Redis holds only cached search results; restart it after reindexing to drop stale entries.
 kubectl --context searchv2 -n caching rollout restart deployment/redis
@@ -109,9 +128,14 @@ forward_pids+=("$!")
 kubectl --context searchv2 -n devops port-forward service/grafana 3000:3000 &
 forward_pids+=("$!")
 
+kubectl --context searchv2 -n messaging port-forward service/rabbitmq 15672:15672 &
+forward_pids+=("$!")
+
 echo 'GUI:     http://localhost:5080'
 echo 'Grafana: http://localhost:3000/d/searchv2 (user: admin)'
+echo 'RabbitMQ: http://localhost:15672 (user: searchv2)'
 echo "Get the password in another terminal:"
 echo "kubectl --context searchv2 -n devops get secret grafana-admin -o jsonpath='{.data.password}' | base64 --decode; echo"
+echo "kubectl --context searchv2 -n messaging get secret rabbitmq-credentials -o jsonpath='{.data.password}' | base64 --decode; echo"
 echo 'Keep this terminal open. Ctrl+C closes the port-forwards; the cluster stays running.'
 wait -n "${forward_pids[@]}"

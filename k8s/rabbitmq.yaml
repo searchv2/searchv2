@@ -1,0 +1,95 @@
+# RabbitMQ: the message bus between the stages of the indexing pipeline (crawler -> tokenizers ->
+# writers, see INDEXING-PIPELINE.md). One replica; the queues are durable but live on an emptyDir, so
+# a rebuilt pod starts with no waiting messages. That is acceptable because the index is derived data:
+# a new reindex publishes every document again.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-plugins
+  namespace: messaging
+data:
+  # management: the web UI on 15672. prometheus: the metrics Prometheus scrapes on 15692.
+  enabled_plugins: "[rabbitmq_management,rabbitmq_prometheus]."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: messaging
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:4-management
+        imagePullPolicy: Never
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: searchv2
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        ports:
+        - name: amqp
+          containerPort: 5672
+        - name: management
+          containerPort: 15672
+        - name: metrics
+          containerPort: 15692
+        # RabbitMQ sizes its memory alarm from the container limit, so the limit is also its ceiling.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 768Mi
+        readinessProbe:
+          exec:
+            command: ["rabbitmq-diagnostics", "-q", "ping"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+        volumeMounts:
+        - name: plugins
+          mountPath: /etc/rabbitmq/enabled_plugins
+          subPath: enabled_plugins
+          readOnly: true
+        - name: data
+          mountPath: /var/lib/rabbitmq
+      volumes:
+      - name: plugins
+        configMap:
+          name: rabbitmq-plugins
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: messaging
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  - name: management
+    port: 15672
+    targetPort: 15672
+  - name: metrics
+    port: 15692
+    targetPort: 15692

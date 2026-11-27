@@ -461,6 +461,66 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Indexing queues: messages waiting",
+      "description": "Messages in each indexing queue (ready plus unacknowledged). A growing 'discovered' queue means the tokenizers are the bottleneck, a growing 'tokenized' queue means the writers are; 'failed' holds documents a stage could not process. See INDEXING-PIPELINE.md.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 80,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rabbitmq_detailed_queue_messages{queue=~\"searchv2.documents.*\"}",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Indexing workers connected",
+      "description": "Consumers per queue: the discovered queue is read by the tokenizers, the tokenized queue by the writers. Scale them with kubectl scale deployment/indexer-tokenizer or indexer-writer.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 80,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rabbitmq_detailed_queue_consumers{queue=~\"searchv2.documents.(discovered|tokenized)\"}",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      }
     }
   ]
 }

@@ -17,12 +17,12 @@ The course names five principles and lets the architect choose which to follow.
 | --- | --- | --- |
 | Scale out, not up | Yes | Two `search-api` replicas behind one Service (`apps.yaml`, `replicas: 2`); the pods have small CPU and memory requests, and the performance test shows the API is not the bottleneck. |
 | Stateless systems | The API, yes; the GUI, no | `search-api` keeps no state: results come from PostgreSQL, cached results from Redis, and the feature flag from a mounted file. Any replica can answer any request (`X-Served-By` shows which one did). Blazor Server keeps a circuit in memory per user, so it runs as one replica (`replicas: 1`). |
-| Asynchronous design | No, on purpose | See "Synchronous design" below. |
+| Asynchronous design | Yes, for indexing; no, for search | Indexing is a pipeline of three stages joined by RabbitMQ queues ([INDEXING-PIPELINE.md](INDEXING-PIPELINE.md)). A search stays a synchronous request, see "Synchronous and asynchronous design" below. |
 | Design to be monitored | Yes | OpenTelemetry in both apps, Collector, Prometheus, Loki, a provisioned Grafana dashboard and alert rules (`observability/`, README "Alerting"). |
 | Design to be disabled | Yes | The `SearchCache` feature flag turns the cache off without a rollback or a new image (README "Disabling a feature"). |
 
-Not chosen as principles, on purpose: asynchronous design (above). Together with the descoped
-ranking, snippets and synonyms, this keeps the focus on scaling, caching, monitoring and operation.
+Descoped on purpose: ranking, snippets and synonyms. That keeps the focus on scaling, caching, monitoring,
+the message-driven indexing pipeline and operation.
 
 ## Database in Kubernetes or not (module 11)
 
@@ -58,19 +58,24 @@ themselves are the source of truth and live outside the database. Because of tha
 configured. If the data ever stopped being derivable (for example user accounts or saved searches),
 a scheduled `pg_dump` to a persistent volume or object storage would be needed first.
 
-## Synchronous design (module 1)
+## Synchronous and asynchronous design (module 1)
 
-**Chosen:** a search is a synchronous request: the browser calls the Blazor server, which calls the
-API, which answers from Redis or PostgreSQL. Indexing is a one-shot batch Job that is started by hand.
+**Chosen:** search is synchronous; indexing is asynchronous.
 
-**Why:** a user is waiting for the answer, so there is nothing to hand off to a queue; the measured
-latency (p95 16 ms to 624 ms depending on load) is within the target. Indexing is rare and
-runs to completion, so a queue between document discovery and indexing would add a broker to operate
-with no benefit at this scale.
+*Search* is a synchronous request: the browser calls the Blazor server, which calls the API, which answers
+from Redis or PostgreSQL. A user is waiting for the answer, so there is nothing to hand off to a queue, and
+the measured latency (p95 16 ms to 624 ms depending on load) is within the target.
 
-**Where asynchronous would fit:** a message bus (for example RabbitMQ) between "a document was found"
-and "index it", so several indexer pods could work in parallel (the course's y-scale pipeline), and
-for search agents that must be notified when a new document matches. Neither is built.
+*Indexing* is the opposite. Nobody waits for one document, the work is heavy, and its stages have different
+costs, so it runs as a pipeline of three stages (crawler, tokenizer, writer) that talk through RabbitMQ
+queues instead of calling each other. The queue decouples the stages: each is scaled on its own (the writers
+turned out to be the slow stage), a crashed worker's message goes to another worker, and a bad document is
+parked in a dead-letter queue instead of stopping the run. The cost is a broker to operate and the need to
+make every step idempotent, because delivery is at-least-once. Design, measurements and failure tests are in
+[INDEXING-PIPELINE.md](INDEXING-PIPELINE.md).
+
+**Where more asynchronous design would fit:** search agents that must be notified when a newly indexed document
+matches a stored query would be another consumer on the same bus. Not built.
 
 ## Plain manifests and OpenTelemetry instead of the guide's Helm charts (modules 8 and 9)
 

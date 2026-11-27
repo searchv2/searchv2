@@ -28,10 +28,17 @@ node "Minikube node (profile searchv2: 1 node, 4 CPU, 6 GiB)" <<device>> as mini
       artifact "searchv2-search-api:1.0.1" <<image>> as apiimg
     }
     node "Service: search-api\n(ClusterIP 8080)" <<service>> as apisvc
-    node "Job: indexer (one-shot)" <<pod>> as indexerpod {
-      node "indexer" <<container>> as indexer
-      artifact "searchv2-indexer:1.0.1" <<image>> as indexerimg
+    node "Job: indexer (one-shot)\npipeline stage 1: publishes the documents,\nwaits until they are stored" <<pod>> as indexerpod {
+      node "indexer (role pipeline)" <<container>> as indexer
+      artifact "searchv2-indexer:1.0.1\n(one image, role chosen by argument)" <<image>> as indexerimg
     }
+    node "Pods: indexer-tokenizer (2 replicas)\npipeline stage 2: reads a file, extracts its words" <<pod>> as tokpod {
+      node "indexer (role tokenizer)" <<container>> as tokenizer
+    }
+    node "Pods: indexer-writer (2 replicas)\npipeline stage 3: stores a document in PostgreSQL" <<pod>> as writerpod {
+      node "indexer (role writer)" <<container>> as writer
+    }
+    artifact "rabbitmq-credentials" <<secret>> as mqsecretapp
     folder "hostPath /data/searchv2-docs\n(document corpus, mounted read-only at /data/docs)" <<volume>> as docs
     artifact "feature-flags\n(featureflags.json mounted at /config)" <<configmap>> as flags
     artifact "postgresql-credentials" <<secret>> as pgsecret
@@ -43,6 +50,14 @@ node "Minikube node (profile searchv2: 1 node, 4 CPU, 6 GiB)" <<device>> as mini
       artifact "redis:7-alpine" <<image>> as redisimg
     }
     artifact "redis-credentials" <<secret>> as redissecret
+  }
+
+  node "Namespace: messaging" <<namespace>> as nsmq {
+    node "Pod: rabbitmq (1 replica)" <<pod>> as mqpod {
+      node "rabbitmq (:5672 AMQP, :15672 UI, :15692 metrics)\nqueues: discovered, tokenized, failed" <<container>> as mq
+      artifact "rabbitmq:4-management" <<image>> as mqimg
+    }
+    artifact "rabbitmq-credentials" <<secret>> as mqsecret
   }
 
   node "Namespace: database" <<namespace>> as nsdb {
@@ -72,14 +87,24 @@ apisvc --> api : HTTP 8080 (load balanced)
 
 ' --- data access
 api --> pg : "TCP 5432 (SQL, read-only use)\nusername searcher"
-indexer --> pg : "TCP 5432 (SQL, write)"
+indexer --> pg : "TCP 5432 (SQL: reset schema, count)"
+writer --> pg : "TCP 5432 (SQL, one transaction per document)"
+indexer --> mq : "AMQP 5672\npublish DocumentDiscovered"
+tokenizer --> mq : "AMQP 5672\nconsume DocumentDiscovered,\npublish DocumentTokenized"
+writer --> mq : "AMQP 5672\nconsume DocumentTokenized"
 api --> redis : "TCP 6379 (Redis, cache-aside)\nflag SearchCache"
 api ..> docs : read-only mount
 indexer ..> docs : read-only mount
+tokenizer ..> docs : read-only mount
 pg ..> pvc : data directory
 api ..> flags : mounted file /config
 api ..> pgsecret : env SEARCH_DB_PASSWORD
 indexer ..> pgsecret : env SEARCH_DB_PASSWORD
+writer ..> pgsecret : env SEARCH_DB_PASSWORD
+indexer ..> mqsecretapp : env RABBITMQ_PASSWORD
+tokenizer ..> mqsecretapp : env RABBITMQ_PASSWORD
+writer ..> mqsecretapp : env RABBITMQ_PASSWORD
+mq ..> mqsecret : default password
 api ..> redissecret : env REDISPASSWORD
 redis ..> redissecret : password file
 
@@ -87,6 +112,7 @@ redis ..> redissecret : password file
 api --> otel : "OTLP gRPC 4317\nmetrics + logs"
 blazor --> otel : "OTLP gRPC 4317\nmetrics + logs"
 prom --> otel : "scrape :8889 every 15 s"
+prom --> mq : "scrape :15692 /metrics/detailed\n(queue depth, consumers)"
 otel --> loki : "OTLP/HTTP logs"
 grafana --> prom : PromQL
 grafana --> loki : LogQL
@@ -95,5 +121,6 @@ grafana --> loki : LogQL
 localimages ..> blazorimg : "minikube image load\n(imagePullPolicy: Never)"
 localimages ..> apiimg
 localimages ..> indexerimg
+localimages ..> mqimg : "docker pull, then minikube image load"
 
 @enduml

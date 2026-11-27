@@ -1,12 +1,14 @@
 @startuml class-diagram-indexer
-title SearchV2 - Class diagram: Indexer (one-shot job that rebuilds the index)
+title SearchV2 - Class diagram: Indexer (batch mode and the message-driven pipeline)
 skinparam classAttributeIconSize 0
 skinparam packageStyle rectangle
 skinparam nodesep 30
 skinparam ranksep 40
 hide empty members
 
-' Same style as class-diagram.puml; the indexer is the only writer of the index.
+' Same style as class-diagram.puml; the indexer is the only writer of the index. One image runs in four
+' roles (Program): batch (IndexingService, one process) or, for the pipeline, pipeline (IndexingPipeline,
+' the coordinator), tokenizer (TokenizerWorker) and writer (WriterWorker), connected by RabbitMQ queues.
 
 package "Indexer" as indexer {
   class Program <<entry point>>
@@ -15,10 +17,43 @@ package "Indexer" as indexer {
       +Reindex() : IndexStatistics
     }
     class IndexingService
+    class IndexingPipeline <<stage 1, coordinator>> {
+      +RunAsync() : PipelineResult
+    }
+    class TokenizerWorker <<stage 2>> {
+      +HandleAsync(DocumentDiscovered)
+    }
+    class WriterWorker <<stage 3>> {
+      +HandleAsync(DocumentTokenized)
+    }
+    class WordExtractor <<static>> {
+      +Extract(content) : ISet<string>
+    }
   }
   package "Core" as idxcore {
     interface IDocumentSource {
       +EnumerateDocuments() : IEnumerable<SourceDocument>
+      +EnumerateReferences() : IEnumerable<DocumentReference>
+      +Read(url) : string
+    }
+    interface IMessageQueue {
+      +PublishAsync(queue, message)
+      +ConsumeAsync(queue, handler)
+      +CountAsync(queue) : int
+    }
+    interface IDocumentWriter {
+      +ResetSchema()
+      +Write(url, createdAt, words)
+      +DocumentCount : int
+    }
+    class DocumentDiscovered <<message>> {
+      +Url : string
+      +CreatedAt : string
+    }
+    class DocumentTokenized <<message>> {
+      +Url : string
+      +CreatedAt : string
+      +Words : IReadOnlyList<string>
     }
     interface IIndexStore {
       +GetAllWords() : Dictionary<string, int>
@@ -47,25 +82,44 @@ package "Indexer" as indexer {
     class FileSystemDocumentSource
     class PostgresIndexStore
     class InMemoryIndexStore
+    class RabbitMqQueue
+    class PostgresDocumentWriter
   }
 }
 
 class "Reverse index (PostgreSQL: document, word, occ)" as db <<database>>
 class "Document corpus (.txt files)" as fs <<file system>>
+class "RabbitMQ\nqueues: discovered, tokenized, failed (dead letters)" as mq <<message bus>>
 
 IndexingService .up.|> IIndexingService
 FileSystemDocumentSource .up.|> IDocumentSource
 PostgresIndexStore .up.|> IIndexStore
 InMemoryIndexStore .up.|> IIndexStore
+RabbitMqQueue .up.|> IMessageQueue
+PostgresDocumentWriter .up.|> IDocumentWriter
 
 Program --> IIndexingService
+Program --> IndexingPipeline
+Program --> TokenizerWorker
+Program --> WriterWorker
 IndexingService --> IIndexStore
 IndexingService --> IDocumentSource
 IndexingService ..> IndexStatistics
 IndexingService ..> IndexedDocument
 IDocumentSource ..> SourceDocument
+IndexingService ..> WordExtractor
+TokenizerWorker ..> WordExtractor
+IndexingPipeline --> IDocumentSource : references only
+IndexingPipeline --> IMessageQueue : publishes DocumentDiscovered
+IndexingPipeline --> IDocumentWriter : reset schema, count
+TokenizerWorker --> IDocumentSource : reads the file
+TokenizerWorker --> IMessageQueue : consumes DocumentDiscovered,\npublishes DocumentTokenized
+WriterWorker --> IMessageQueue : consumes DocumentTokenized
+WriterWorker --> IDocumentWriter
 
 FileSystemDocumentSource --> fs : read-only
 PostgresIndexStore --> db : write-only
+PostgresDocumentWriter --> db : one transaction per document
+RabbitMqQueue --> mq : AMQP
 
 @enduml

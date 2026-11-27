@@ -43,6 +43,27 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: The 95th percentile of search-api request duration is above 500 ms
+      - alert: RabbitMqDown
+        expr: up{job="rabbitmq"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: Prometheus cannot scrape RabbitMQ; the indexing pipeline has no message bus
+      - alert: IndexingMessagesFailed
+        # Documents a stage could not process end up here (see INDEXING-PIPELINE.md, "Failures").
+        expr: rabbitmq_detailed_queue_messages_ready{queue="searchv2.documents.failed"} > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: Documents are in the dead-letter queue; the index is missing them
+      - alert: IndexingWorkersMissing
+        expr: |
+          (rabbitmq_detailed_queue_consumers{queue=~"searchv2.documents.(discovered|tokenized)"} == 0)
+            and (rabbitmq_detailed_queue_messages{queue=~"searchv2.documents.(discovered|tokenized)"} > 0)
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: Messages are waiting in an indexing queue but no worker is consuming it
       - alert: SearchCacheFailing
         expr: sum(rate(searchv2_cache_errors_total{service_name="search-api"}[5m])) > 0
         for: 2m

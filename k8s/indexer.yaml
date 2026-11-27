@@ -1,3 +1,7 @@
+# The indexing pipeline (see INDEXING-PIPELINE.md). The Job below is stage 1: it resets the index,
+# publishes one message per document and waits until the workers have stored them all. The two
+# Deployments after it are stages 2 and 3; scale them independently, for example
+#   kubectl --context searchv2 -n searchv2 scale deployment/indexer-writer --replicas=4
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -29,6 +33,15 @@ spec:
             secretKeyRef:
               name: postgresql-credentials
               key: password
+        - name: RABBITMQ_HOST
+          value: rabbitmq.messaging.svc.cluster.local
+        - name: RABBITMQ_USER
+          value: searchv2
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
         - name: INDEXER_FOLDER
           value: /data/docs
         volumeMounts:
@@ -50,4 +63,98 @@ spec:
             echo 'No .txt files found; refusing to replace the index.' >&2
             exit 1
           }
-          exec dotnet indexer.dll
+          exec dotnet indexer.dll pipeline
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer-tokenizer
+  namespace: searchv2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: indexer-tokenizer
+  template:
+    metadata:
+      labels:
+        app: indexer-tokenizer
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: documents
+        hostPath:
+          path: /data/searchv2-docs
+          type: Directory
+      containers:
+      - name: tokenizer
+        image: searchv2-indexer:1.0.1
+        imagePullPolicy: Never
+        args: ["tokenizer"]
+        env:
+        - name: RABBITMQ_HOST
+          value: rabbitmq.messaging.svc.cluster.local
+        - name: RABBITMQ_USER
+          value: searchv2
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        - name: INDEXER_FOLDER
+          value: /data/docs
+        volumeMounts:
+        - name: documents
+          mountPath: /data/docs
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer-writer
+  namespace: searchv2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: indexer-writer
+  template:
+    metadata:
+      labels:
+        app: indexer-writer
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: writer
+        image: searchv2-indexer:1.0.1
+        imagePullPolicy: Never
+        args: ["writer"]
+        env:
+        - name: SEARCH_DB_CONNECTION
+          value: Host=postgresql-db.database.svc.cluster.local;Port=5432;Database=searchengine;Username=searcher;Gss Encryption Mode=Disable
+        - name: SEARCH_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: password
+        - name: RABBITMQ_HOST
+          value: rabbitmq.messaging.svc.cluster.local
+        - name: RABBITMQ_USER
+          value: searchv2
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
