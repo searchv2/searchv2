@@ -64,7 +64,7 @@ a scheduled `pg_dump` to a persistent volume or object storage would be needed f
 
 *Search* is a synchronous request: the browser calls the Blazor server, which calls the API, which answers
 from Redis or PostgreSQL. A user is waiting for the answer, so there is nothing to hand off to a queue, and
-the measured latency (p95 16 ms to 624 ms depending on load) is within the target.
+the measured latency (p95 14 ms to 42 ms depending on load, 27 November run) is within the target.
 
 *Indexing* is the opposite. Nobody waits for one document, the work is heavy, and its stages have different
 costs, so it runs as a pipeline of three stages (crawler, tokenizer, writer) that talk through RabbitMQ
@@ -132,8 +132,9 @@ cost over time, what is the risk of owning it) to each part:
 
 **Why this is enough:** the cache only holds results that can be recalculated. If Redis restarts or is
 lost, the API falls back to PostgreSQL (counted in `searchv2.cache_errors`) and searches are slower
-for a short while, but nothing is lost. The measured hit ratio and the ~3.4x throughput gain show the
-cache already does its job without more nodes.
+for a short while, but nothing is lost. The measured hit ratio (80 %) shows that the cache already absorbs most queries without more nodes. Its
+throughput gain is small (about 7 % once PostgreSQL is not CPU limited), so it is justified as protection for
+the database, not as a speed-up.
 
 **How it would scale:**
 1. *Replicas with Sentinel (high availability):* a primary plus replicas and Sentinel promote a replica

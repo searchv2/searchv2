@@ -124,6 +124,27 @@ What this shows:
   the "the database is the bottleneck" finding in [PERFORMANCE-TEST.md](PERFORMANCE-TEST.md), which was
   measured with an even smaller one (the chart's default 150m CPU).
 
+## Metrics on the dashboard
+
+The pipeline reports its own timings through the same OpenTelemetry Collector as the API, so the numbers in
+this document are also on the Grafana dashboard (panels 16 to 21):
+
+| Panel | Source | Shows |
+| --- | --- | --- |
+| Indexing queues: messages waiting | RabbitMQ | queue depth; a growing `tokenized` queue marks slow writers |
+| Indexing workers connected | RabbitMQ | consumers per queue |
+| Last reindex time by worker count | the Job, once at the end | seconds, one bar per tokenizers + writers combination |
+| Last reindex throughput by worker count | the Job | documents per second |
+| Indexing throughput by stage | the workers | documents per second per stage |
+| Indexing time per document by stage | the workers | average seconds per document per stage |
+
+The code uses only `System.Diagnostics.Metrics` (`IndexerMetrics`); the OpenTelemetry exporter is wired in
+`Program.cs` and is switched on by `OTEL_EXPORTER_OTLP_ENDPOINT`, so docker compose and a local run export
+nothing. The Job records the worker counts from the queue's consumer counts when the run ends. Prometheus keeps
+the run results for 24 hours, so the "last reindex" bars show the runs of the last day. Measured on the live
+cluster: a tokenizer takes about 1.3 ms per document and a writer about 9.6 ms, which is the writer bottleneck
+in numbers. Screenshots: `presentation/screenshots/grafana-indexing-*.png`.
+
 ## Failures
 
 Tested on the live cluster:
@@ -156,4 +177,4 @@ Three rules were added to `observability/alerts.yaml` (see [README.md](README.md
   turns the file into text; the messages and queues would not change.
 * **Incremental updates.** A run still replaces the whole index. The idempotent write makes re-indexing a
   single document possible (publish one message), but nothing triggers it.
-* **Application metrics.** The workers log to standard output only; the queue metrics come from RabbitMQ.
+* **Logs.** The workers log to standard output only (not to Loki); their metrics go to the Collector, see "Metrics on the dashboard".

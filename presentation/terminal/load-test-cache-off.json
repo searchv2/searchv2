@@ -1,0 +1,50 @@
+[
+  {
+    "concurrency": 2,
+    "seconds": 30.0,
+    "requests": 5854,
+    "errors": 0,
+    "error_rate": 0.0,
+    "rps": 195.1,
+    "p50_ms": 9.4,
+    "p95_ms": 13.7,
+    "p99_ms": 28.6,
+    "max_ms": 58.3,
+    "pods": {
+      "search-api-c7f4d65c7-fw2wx": 2916,
+      "search-api-c7f4d65c7-mrnf9": 2938
+    }
+  },
+  {
+    "concurrency": 8,
+    "seconds": 60.0,
+    "requests": 27240,
+    "errors": 0,
+    "error_rate": 0.0,
+    "rps": 453.8,
+    "p50_ms": 16.2,
+    "p95_ms": 24.7,
+    "p99_ms": 45.6,
+    "max_ms": 236.6,
+    "pods": {
+      "search-api-c7f4d65c7-mrnf9": 13606,
+      "search-api-c7f4d65c7-fw2wx": 13634
+    }
+  },
+  {
+    "concurrency": 16,
+    "seconds": 60.0,
+    "requests": 31280,
+    "errors": 0,
+    "error_rate": 0.0,
+    "rps": 521.1,
+    "p50_ms": 28.8,
+    "p95_ms": 44.0,
+    "p99_ms": 71.9,
+    "max_ms": 134.0,
+    "pods": {
+      "search-api-c7f4d65c7-mrnf9": 15869,
+      "search-api-c7f4d65c7-fw2wx": 15411
+    }
+  }
+]

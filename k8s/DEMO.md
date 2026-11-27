@@ -1,6 +1,6 @@
-# Demo script (about 12 minutes)
+# Demo script (the long version)
 
-A walk through the system for the exam. Every command below was run against this cluster. Each
+The exam is 30 minutes: a 5-10 minute presentation, 15-20 minutes of questions and 5 minutes for the grade, and the presentation is about a self-chosen set of principles shown in the working system. This script is the long version of the demo, about 12 minutes, so pick the steps that serve the principles you present (`presentation/searchv2-exam.pptx` has a ready-made storyline). A walk through the system for the exam. Every command below was run against this cluster. Each
 step says what to show and what point it makes.
 
 ## Before you start (not part of the 12 minutes)
@@ -88,9 +88,7 @@ kubectl --context searchv2 -n searchv2 rollout status deploy/search-api
 kubectl --context searchv2 -n searchv2 scale deploy/search-api --replicas=2
 ```
 
-Say: x-axis for the code is just more replicas. The load test shows more replicas would not help
-today, because the bottleneck is the database path (the API used about 0.16 cores per pod with the
-cache off). Then open `k8s/DATABASE-SCALING.md`: read replicas (x-axis) and sharding by document
+Say: x-axis for the code is just more replicas. The load test reaches 556 req/s with 0 errors and the API pods peak at about 1 core each, so on one 4-CPU laptop more replicas would help little. (The earlier conclusion that the database path was the bottleneck came from a CPU limit on PostgreSQL; see `PERFORMANCE-TEST.md`, section D.) Then open `k8s/DATABASE-SCALING.md`: read replicas (x-axis) and sharding by document
 (z-axis) with a scatter/gather router in the API, and the downsides.
 
 The indexing side does scale. Open the RabbitMQ UI (http://localhost:15672, started by `start.sh`) or the

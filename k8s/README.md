@@ -538,7 +538,7 @@ production packages or public telemetry HTTP endpoints were added.
 
 ## Alerting
 
-Dashboards show data; alerts say when to look. Six rules in `k8s/observability/alerts.yaml` follow the
+Dashboards show data; alerts say when to look. Nine rules in `k8s/observability/alerts.yaml` follow the
 slide's framework (is there an incident, where, what). They are loaded by Prometheus and appear on its
 **Alerts** page (`kubectl --context searchv2 -n devops port-forward svc/prometheus 9090:9090`, then
 http://localhost:9090/alerts) and in the Grafana panel **Firing alerts** at the bottom of the dashboard.
@@ -551,6 +551,9 @@ http://localhost:9090/alerts) and in the Grafana panel **Firing alerts** at the 
 | `ServerErrorRateHigh` | more than 5% of API requests return 5xx over 5 minutes, for 2 minutes | critical |
 | `SearchLatencyHigh` | API p95 above 500 ms (the target in `PERFORMANCE-TEST.md`) over 5 minutes, for 5 minutes | warning |
 | `SearchCacheFailing` | Redis reads or writes fail for 2 minutes (searches fall back to PostgreSQL) | warning |
+| `RabbitMqDown` | Prometheus cannot scrape RabbitMQ for 1 minute | critical |
+| `IndexingMessagesFailed` | a document sits in the dead-letter queue for 1 minute | warning |
+| `IndexingWorkersMissing` | messages wait in an indexing queue but no worker consumes it for 2 minutes | critical |
 
 **Limits.** There is no Alertmanager, so nothing is sent to anyone: somebody has to look at the Alerts
 page or the dashboard. In production add Alertmanager with a receiver such as e-mail or chat. The

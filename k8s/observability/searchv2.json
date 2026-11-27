@@ -486,8 +486,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0
+          "unit": "short"
         },
         "overrides": []
       }
@@ -516,8 +515,169 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "type": "bargauge",
+      "title": "Last reindex time by worker count",
+      "description": "How long a full reindex took, from clearing the index to the last document stored, for each combination of tokenizer and writer workers (reported by the indexer Job when it finishes). Shows what the last 24 hours of runs found; compare with k8s/INDEXING-PIPELINE.md.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 88,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "last_over_time(searchv2_indexing_run_duration_seconds{service_name=\"indexer-pipeline\"}[24h])",
+          "instant": true,
+          "legendFormat": "{{tokenizers}} tokenizers + {{writers}} writers"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "auto"
+      }
+    },
+    {
+      "id": 19,
+      "type": "bargauge",
+      "title": "Last reindex throughput by worker count",
+      "description": "Documents stored per second during the last reindex, for each combination of tokenizer and writer workers.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 88,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "last_over_time(searchv2_indexing_run_throughput_per_second{service_name=\"indexer-pipeline\"}[24h])",
+          "instant": true,
+          "legendFormat": "{{tokenizers}} tokenizers + {{writers}} writers"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
           "unit": "short",
-          "decimals": 0
+          "min": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "auto"
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Indexing throughput by stage (documents/s)",
+      "description": "Documents each pipeline stage handled per second, summed over its pods. The stage with the lower line while the queue in front of it grows is the bottleneck.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 96,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage) (rate(searchv2_indexing_stage_documents_total{outcome=\"ok\"}[30s]))",
+          "legendFormat": "{{stage}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Indexing time per document by stage",
+      "description": "Average time a stage spent on one document: the tokenizer reads and tokenises a file and publishes the result, the writer stores it in PostgreSQL in one transaction.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 96,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage) (rate(searchv2_indexing_stage_duration_seconds_sum[1m])) / sum by (stage) (rate(searchv2_indexing_stage_duration_seconds_count[1m]))",
+          "legendFormat": "{{stage}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
         },
         "overrides": []
       }

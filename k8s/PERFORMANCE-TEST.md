@@ -49,6 +49,8 @@ Open the dashboard at <http://localhost:3000/d/searchv2> during the run. For the
 
 ## C. Results
 
+> **Superseded for throughput and latency (27 November).** These two runs were made while the PostgreSQL pod was limited to the Helm chart's default of 150m CPU, which throttled it. Without that limit the same test gives 556 req/s with the cache on and 521 without; see section D. The method, the metric check and the 0-error result still hold.
+
 Run on 2026-11-26 on the Minikube cluster above, with `seData/medium` (3,034 documents), two API replicas, Redis and PostgreSQL as deployed by `start.sh`. Load: `k8s/load-test.py --stages 2x30,8x60,16x60`, 20 % one-off queries, 50 repeating ones. Requests were spread over the two API pods through one port-forward per pod. Raw output and the dashboard screenshots are in `k8s/perf-results/`.
 
 ### Cache on (default)
@@ -101,3 +103,40 @@ Adding API replicas would not help, because the API is not the bottleneck. Cheap
 - Repeat the run with PostgreSQL metrics enabled (`metrics.enabled` in the Bitnami values) to see where inside the database the time goes.
 - An endurance run (10 to 15 minutes) was not done, so memory growth over time is not shown.
 - Run on a quieter machine, or with the load generator inside the cluster, to remove the port-forward and the shared-CPU effects.
+
+## D. Re-run on 27 November: PostgreSQL without a CPU limit
+
+The same script (`k8s/load-test.py --stages 2x30,8x60,16x60`), the same data and two API pods, but with the CPU limit removed from PostgreSQL (it had been 150m, then 1 CPU; see `INDEXING-PIPELINE.md`, "Results"). Screenshots: `presentation/screenshots/grafana-load-cache-on.png` and `grafana-load-cache-off.png`; raw output in `presentation/terminal/`.
+
+### Cache on
+
+| Workers | req/s | p50 | p95 | p99 | Errors |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 192 | 8.9 ms | 14.9 ms | 25.8 ms | 0 |
+| 8 | 486 | 14.6 ms | 24.1 ms | 34.6 ms | 0 |
+| 16 | 556 | 26.8 ms | 41.9 ms | 57.9 ms | 0 |
+
+The client sent 68,325 requests and Prometheus counted 68,303. The cache served 55,233 hits and 13,951 misses (80 %). Both pods took about half of the requests each. The API pods peaked at about 1 core each.
+
+### Cache off (flag switched off two minutes beforehand)
+
+| Workers | req/s | p50 | p95 | p99 | Errors |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 195 | 9.4 ms | 13.7 ms | 28.6 ms | 0 |
+| 8 | 454 | 16.2 ms | 24.7 ms | 45.6 ms | 0 |
+| 16 | 521 | 28.8 ms | 44.0 ms | 71.9 ms | 0 |
+
+Prometheus showed 0 cache hits and 0 misses during this run, so the cache really was bypassed. The client sent 64,374 requests and Prometheus counted 64,374.
+
+### What changed in the conclusions
+
+| 16 workers | DB limited (26 Nov) | No DB CPU limit (27 Nov) |
+| --- | --- | --- |
+| Cache on | 135 req/s, p95 624 ms | 556 req/s, p95 42 ms |
+| Cache off | 40 req/s, p95 1,000 ms | 521 req/s, p95 44 ms |
+
+- **The "database path is the bottleneck" finding in section C came mostly from the CPU limit**, not from the database being slow by nature. With the limit gone, throughput is four times higher with the cache and thirteen times higher without it.
+- **The cache's throughput gain shrinks from about 3.4 times to about 7 %.** Searches on this index take a few milliseconds in PostgreSQL, about as long as a Redis round trip, so the cache buys little speed here.
+- **The cache still earns its place as protection for PostgreSQL:** it answers 80 % of the queries, so the database sees a fifth of the load. That matters when the index or the traffic grows; a run on `seData/large` would show it and has not been done.
+- **The "database saturates at about 40 uncached searches per second" formula in section C is withdrawn;** it was a property of the throttled pod.
+- **Still not established:** the load generator (one Python process), both API pods, Redis, PostgreSQL and the monitoring stack share one laptop, so the numbers remain relative. At 16 workers the API pods used about 1 core each, so the API, the generator or the node may now be the limit.

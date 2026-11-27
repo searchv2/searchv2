@@ -1,0 +1,6 @@
+$ kubectl -n searchv2 patch configmap feature-flags --type merge -p ... {"SearchCache":false}
+configmap/feature-flags patched
+
+$ kubectl -n searchv2 get configmap feature-flags -o jsonpath={.data}
+{"featureflags.json":"{\"FeatureManagement\":{\"SearchCache\":false}}"}
+(no restart: the file reaches the running pods in 1-2 minutes)

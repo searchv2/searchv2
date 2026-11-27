@@ -1,0 +1,12 @@
+$ kubectl -n searchv2 get deploy
+NAME               READY  AVAILABLE
+blazor             1/1    1        
+indexer-tokenizer  2/2    2        
+indexer-writer     2/2    2        
+search-api         2/2    2        
+
+$ helm list -n database
+postgresql-db  rev 12  deployed  postgresql-18.12.17
+
+$ kubectl get cm feature-flags -o jsonpath={.data}
+{"featureflags.json":"{\"FeatureManagement\":{\"SearchCache\":true}}"}

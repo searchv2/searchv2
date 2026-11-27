@@ -1,0 +1,6 @@
+conc  secs    reqs   err%   req/s   p50 ms   p95 ms   p99 ms  pods
+   2  30.0    5854   0.00   195.1      9.4     13.7     28.6  {'search-api-c7f4d65c7-fw2wx': 2916, 'search-api-c7f4d65c7-mrnf9': 2938}
+   8  60.0   27240   0.00   453.8     16.2     24.7     45.6  {'search-api-c7f4d65c7-mrnf9': 13606, 'search-api-c7f4d65c7-fw2wx': 13634}
+  16  60.0   31280   0.00   521.1     28.8     44.0     71.9  {'search-api-c7f4d65c7-mrnf9': 15869, 'search-api-c7f4d65c7-fw2wx': 15411}
+
+verification: client sent 64374, Prometheus counted 64374 (difference +0)

@@ -1,0 +1,16 @@
+$ kubectl get pods -A   (application namespaces)
+caching    redis-56d8c68959-zqfxt                   1/1   Running
+database   postgresql-db-0                          2/2   Running
+devops     grafana-5f699fd5d8-b6vcg                 1/1   Running
+devops     loki-58ff4bbf4f-s6qhn                    1/1   Running
+devops     otel-collector-79dc97df9d-2587w          1/1   Running
+devops     prometheus-db9f8ff4f-z6pp2               1/1   Running
+messaging  rabbitmq-695869646c-hgdzr                1/1   Running
+searchv2   blazor-86cfd6dbdb-h4hdq                  1/1   Running
+searchv2   indexer-csvgv                            0/1   Completed
+searchv2   indexer-tokenizer-69677565f5-7jf5x       1/1   Running
+searchv2   indexer-tokenizer-69677565f5-h27f2       1/1   Running
+searchv2   indexer-writer-579946865f-2gr2j          1/1   Running
+searchv2   indexer-writer-579946865f-qgj5j          1/1   Running
+searchv2   search-api-c7f4d65c7-fw2wx               1/1   Running
+searchv2   search-api-c7f4d65c7-mrnf9               1/1   Running

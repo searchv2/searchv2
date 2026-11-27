@@ -1,0 +1,10 @@
+$ prometheus: 9 alert rules, all evaluating
+SearchApiDown           ok  inactive 1m critical
+SearchApiReplicaMissing ok  inactive 1m warning
+MetricsPipelineDown     ok  inactive 1m critical
+ServerErrorRateHigh     ok  inactive 2m critical
+SearchLatencyHigh       ok  inactive 5m warning
+RabbitMqDown            ok  inactive 1m critical
+IndexingMessagesFailed  ok  inactive 1m warning
+IndexingWorkersMissing  ok  inactive 2m critical
+SearchCacheFailing      ok  inactive 2m warning

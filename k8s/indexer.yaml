@@ -33,6 +33,14 @@ spec:
             secretKeyRef:
               name: postgresql-credentials
               key: password
+        - name: OTEL_SERVICE_NAME
+          value: indexer-pipeline
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.devops.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_METRIC_EXPORT_INTERVAL
+          value: "10000"
         - name: RABBITMQ_HOST
           value: rabbitmq.messaging.svc.cluster.local
         - name: RABBITMQ_USER
@@ -92,6 +100,14 @@ spec:
         imagePullPolicy: Never
         args: ["tokenizer"]
         env:
+        - name: OTEL_SERVICE_NAME
+          value: indexer-tokenizer
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.devops.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_METRIC_EXPORT_INTERVAL
+          value: "10000"
         - name: RABBITMQ_HOST
           value: rabbitmq.messaging.svc.cluster.local
         - name: RABBITMQ_USER
@@ -143,6 +159,14 @@ spec:
             secretKeyRef:
               name: postgresql-credentials
               key: password
+        - name: OTEL_SERVICE_NAME
+          value: indexer-writer
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.devops.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_METRIC_EXPORT_INTERVAL
+          value: "10000"
         - name: RABBITMQ_HOST
           value: rabbitmq.messaging.svc.cluster.local
         - name: RABBITMQ_USER

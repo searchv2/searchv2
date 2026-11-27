@@ -1,0 +1,7 @@
+$ for port in 5071 5072; do curl -si -X POST localhost:$port/api/Search ... | grep -iE "^HTTP|x-served-by"; done
+HTTP/1.1 200 OK
+X-Served-By: search-api-c7f4d65c7-fw2wx
+
+HTTP/1.1 200 OK
+X-Served-By: search-api-c7f4d65c7-mrnf9
+
