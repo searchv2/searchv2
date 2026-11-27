@@ -202,12 +202,14 @@ Pull and load Redis and the monitoring images from the host:
 ```sh
 docker pull redis:7-alpine
 docker pull bitnami/postgresql:latest
+docker pull bitnami/postgres-exporter:latest
 docker pull otel/opentelemetry-collector-contrib:0.123.0
 docker pull prom/prometheus:v3.4.1
 docker pull grafana/loki:3.5.1
 docker pull grafana/grafana:12.0.2
 minikube image load -p searchv2 redis:7-alpine
 minikube image load -p searchv2 bitnami/postgresql:latest
+minikube image load -p searchv2 bitnami/postgres-exporter:latest
 minikube image load -p searchv2 otel/opentelemetry-collector-contrib:0.123.0
 minikube image load -p searchv2 prom/prometheus:v3.4.1
 minikube image load -p searchv2 grafana/loki:3.5.1
@@ -505,6 +507,27 @@ The JavaScript checks simulate submission, DOM completion, frame scheduling,
 errors, superseded searches, hidden tabs, and cleanup. The .NET check verifies
 duration validation and the absence of user/search metric labels. No additional
 production packages or public telemetry HTTP endpoints were added.
+
+## Alerting
+
+Dashboards show data; alerts say when to look. Six rules in `k8s/observability/alerts.yaml` follow the
+slide's framework (is there an incident, where, what). They are loaded by Prometheus and appear on its
+**Alerts** page (`kubectl --context searchv2 -n devops port-forward svc/prometheus 9090:9090`, then
+http://localhost:9090/alerts) and in the Grafana panel **Firing alerts** at the bottom of the dashboard.
+
+| Alert | Fires when | Severity |
+| --- | --- | --- |
+| `SearchApiDown` | no `search-api` pod reports metrics for 1 minute | critical |
+| `SearchApiReplicaMissing` | fewer than the 2 expected pods report metrics for 1 minute | warning |
+| `MetricsPipelineDown` | Prometheus cannot scrape the OpenTelemetry Collector for 1 minute | critical |
+| `ServerErrorRateHigh` | more than 5% of API requests return 5xx over 5 minutes, for 2 minutes | critical |
+| `SearchLatencyHigh` | API p95 above 500 ms (the target in `PERFORMANCE-TEST.md`) over 5 minutes, for 5 minutes | warning |
+| `SearchCacheFailing` | Redis reads or writes fail for 2 minutes (searches fall back to PostgreSQL) | warning |
+
+**Limits.** There is no Alertmanager, so nothing is sent to anyone: somebody has to look at the Alerts
+page or the dashboard. In production add Alertmanager with a receiver such as e-mail or chat. The
+Collector keeps a metric for 5 minutes after its pod disappears, so the two pod-count alerts react up
+to about 5 minutes late.
 
 ## Reindex safely
 

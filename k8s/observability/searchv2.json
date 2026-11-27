@@ -370,6 +370,97 @@
         "overrides": []
       },
       "description": "CPU time consumed per second (1 = one full core). Compare with the pod CPU request of 0.1 and the 4 CPUs of the Minikube node."
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Firing alerts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "description": "Alerts from k8s/observability/alerts.yaml that are firing right now. An empty table means none."
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "PostgreSQL connections",
+      "description": "Open connections to the searchengine database (postgres-exporter, pg_stat_database_numbackends). Compare with the connection limit before adding API replicas.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_stat_database_numbackends{datname=\"searchengine\"}",
+          "legendFormat": "PostgreSQL connections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "PostgreSQL buffer cache hit ratio",
+      "description": "Share of block reads served from PostgreSQL's memory instead of disk. A falling ratio under load means the working set no longer fits in memory.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(pg_stat_database_blks_hit{datname=\"searchengine\"}[5m])) / (sum(rate(pg_stat_database_blks_hit{datname=\"searchengine\"}[5m])) + sum(rate(pg_stat_database_blks_read{datname=\"searchengine\"}[5m])))",
+          "legendFormat": "PostgreSQL buffer cache hit ratio"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "decimals": 0,
+          "max": 1
+        },
+        "overrides": []
+      }
     }
   ]
 }

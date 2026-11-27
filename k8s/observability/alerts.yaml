@@ -1,0 +1,51 @@
+# Prometheus alert rules (loaded through rule_files in prometheus.yaml).
+# Five critical monitors, following the slide "Monitoring af applikationer":
+# is there an incident -> where -> what. There is no Alertmanager, so nothing is
+# sent anywhere: the alerts show on the Prometheus /alerts page and on the Grafana
+# panel "Firing alerts". See k8s/README.md ("Alerting").
+groups:
+  - name: searchv2
+    rules:
+      - alert: SearchApiDown
+        # The collector keeps a metric for 5 minutes after a pod disappears, so this
+        # fires up to about 6 minutes after the last API pod is gone.
+        expr: (count(dotnet_process_memory_working_set_bytes{service_name="search-api"}) or vector(0)) == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: No search-api pod is reporting metrics
+      - alert: SearchApiReplicaMissing
+        expr: (count(dotnet_process_memory_working_set_bytes{service_name="search-api"}) or vector(0)) < 2
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: Fewer than the 2 expected search-api pods are reporting metrics
+      - alert: MetricsPipelineDown
+        expr: up{job="otel-collector"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: Prometheus cannot scrape the OpenTelemetry Collector, so every other alert is blind
+      - alert: ServerErrorRateHigh
+        # More than 5% of API requests failed with 5xx during the last 5 minutes.
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{service_name="search-api",http_response_status_code=~"5.."}[5m]))
+            / sum(rate(http_server_request_duration_seconds_count{service_name="search-api"}[5m])) > 0.05
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: More than 5% of search-api requests return a 5xx status
+      - alert: SearchLatencyHigh
+        # 500 ms is the p95 target in k8s/PERFORMANCE-TEST.md.
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="search-api",http_route!="/healthz"}[5m]))) > 0.5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: The 95th percentile of search-api request duration is above 500 ms
+      - alert: SearchCacheFailing
+        expr: sum(rate(searchv2_cache_errors_total{service_name="search-api"}[5m])) > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: Redis reads or writes are failing; searches fall back to PostgreSQL and get slower

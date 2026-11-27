@@ -7,7 +7,7 @@ configMapGenerator:
   - name: otel-collector
     files: [observability/otel-collector.yaml]
   - name: prometheus
-    files: [observability/prometheus.yaml]
+    files: [observability/prometheus.yaml, observability/alerts.yaml]
   - name: loki
     files: [observability/loki.yaml]
   - name: grafana-datasources

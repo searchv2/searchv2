@@ -37,7 +37,7 @@ for target in indexer search-api blazor; do
   docker save "searchv2-$target:1.0.1" | minikube image load -p searchv2 -
 done
 # Load through the host because this machine's Minikube node cannot resolve Docker Hub.
-for image in redis:7-alpine bitnami/postgresql:latest otel/opentelemetry-collector-contrib:0.123.0 prom/prometheus:v3.4.1 grafana/loki:3.5.1 grafana/grafana:12.0.2; do
+for image in redis:7-alpine bitnami/postgresql:latest bitnami/postgres-exporter:latest otel/opentelemetry-collector-contrib:0.123.0 prom/prometheus:v3.4.1 grafana/loki:3.5.1 grafana/grafana:12.0.2; do
   docker pull "$image"
   minikube image load -p searchv2 "$image"
 done

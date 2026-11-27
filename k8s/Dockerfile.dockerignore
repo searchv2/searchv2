@@ -4,5 +4,5 @@
 **/nupkg
 db
 LoadBalancer
-LoadBalancer.Tests
 ConsoleSearch
+**/tests

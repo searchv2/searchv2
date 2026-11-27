@@ -10,10 +10,29 @@ global:
       username: "searcher"
       database: "searchengine"
       existingSecret: "postgresql-credentials"
-# start.sh loads this image from the host as docker.io/bitnami/postgresql:latest,
-# because the Minikube node cannot resolve Docker Hub.
+# start.sh loads these images from the host (the Minikube node cannot resolve Docker Hub). Bitnami
+# only publishes a moving "latest" tag on Docker Hub, so the version floats; see k8s/DECISIONS.md.
 image:
   registry: docker.io
+  repository: bitnami/postgresql
+  tag: latest
+# Exporter for Prometheus (connections, cache hit ratio, locks, database size). It is scraped as
+# postgresql-db-metrics.database:9187 (see observability/prometheus.yaml).
+metrics:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/postgres-exporter
+    tag: latest
 primary:
   persistence:
     size: 2Gi
+  # Explicit instead of the chart's default "nano" preset (150m CPU, 192 MiB), which throttled the
+  # database during the load test. The memory limit is also a ceiling the node must be able to give.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi

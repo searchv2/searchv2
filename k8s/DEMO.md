@@ -100,7 +100,12 @@ cache off). Then open `k8s/DATABASE-SCALING.md`: read replicas (x-axis) and shar
 | Why Redis, what is cached, what is not, eviction and TTL? | `CACHING.md` |
 | What was the bottleneck and how do you know? | `PERFORMANCE-TEST.md` (analysis) |
 | How would the database scale on the z-axis? | `DATABASE-SCALING.md` |
-| Why is the database in the cluster? | `BACKLOG.md`, Tier 2 decision notes (not yet written) |
+| Why is the database in the cluster, and what is the backup plan? | `DECISIONS.md` ("Database in Kubernetes or not", "Backup and recovery") |
+| Which architecture principles do you follow? | `DECISIONS.md` (principles table) |
+| Why plain manifests and not the guide's Helm charts? Build or buy? | `DECISIONS.md` |
+| Why is the document volume a hostPath, and what in production? | `DECISIONS.md` |
+| How would Redis scale? | `DECISIONS.md` ("Redis is not scaled out") |
+| How do you know when something is wrong? | `README.md` ("Alerting"), the Grafana panel "Firing alerts" |
 | What happens when a pod dies / Redis dies / a release fails? | steps 4 and 5 above |
 | Secrets versus ConfigMaps? | C4 document, decision log point 4 |
 | What do the volumes hold, and what may disappear? | C4 document, volume table |
