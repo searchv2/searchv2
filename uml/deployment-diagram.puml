@@ -10,69 +10,69 @@ skinparam ranksep 50
 actor "User" as user
 
 node "Developer machine" <<device>> {
-  node "Browser" <<execution environment>> as browser
-  node "kubectl port-forward\n(start.sh)" <<process>> as forward
-  artifact "searchv2-search-api:1.0.1\nsearchv2-blazor:1.0.1\nsearchv2-indexer:1.0.1\n(built locally with Docker)" <<image>> as localimages
+  node "Browser" as browser <<execution environment>>
+  node "kubectl port-forward\n(start.sh)" as forward <<process>>
+  artifact "searchv2-search-api:1.0.1\nsearchv2-blazor:1.0.1\nsearchv2-indexer:1.0.1\n(built locally with Docker)" as localimages <<image>>
 }
 
-node "Minikube node (profile searchv2: 1 node, 4 CPU, 6 GiB)" <<device>> as minikube {
+node "Minikube node (profile searchv2: 1 node, 4 CPU, 6 GiB)" as minikube <<device>> {
 
-  node "Namespace: searchv2" <<namespace>> as nsapp {
-    node "Pod: blazor (1 replica)" <<pod>> as blazorpod {
-      node "blazor" <<container>> as blazor
-      artifact "searchv2-blazor:1.0.1" <<image>> as blazorimg
+  node "Namespace: searchv2" as nsapp <<namespace>> {
+    node "Pod: blazor (1 replica)" as blazorpod <<pod>> {
+      node "blazor" as blazor <<container>>
+      artifact "searchv2-blazor:1.0.1" as blazorimg <<image>>
     }
-    node "Service: blazor\n(NodePort 8080)" <<service>> as blazorsvc
-    node "Pods: search-api (2 replicas)\nRollingUpdate maxSurge 1, maxUnavailable 0\nprobes: GET /healthz" <<pod>> as apipod {
-      node "search-api\n(ASP.NET Core, :8080)" <<container>> as api
-      artifact "searchv2-search-api:1.0.1" <<image>> as apiimg
+    node "Service: blazor\n(NodePort 8080)" as blazorsvc <<service>>
+    node "Pods: search-api (2 replicas)\nRollingUpdate maxSurge 1, maxUnavailable 0\nprobes: GET /healthz" as apipod <<pod>> {
+      node "search-api\n(ASP.NET Core, :8080)" as api <<container>>
+      artifact "searchv2-search-api:1.0.1" as apiimg <<image>>
     }
-    node "Service: search-api\n(ClusterIP 8080)" <<service>> as apisvc
-    node "Job: indexer (one-shot)\npipeline stage 1: publishes the documents,\nwaits until they are stored" <<pod>> as indexerpod {
-      node "indexer (role pipeline)" <<container>> as indexer
-      artifact "searchv2-indexer:1.0.1\n(one image, role chosen by argument)" <<image>> as indexerimg
+    node "Service: search-api\n(ClusterIP 8080)" as apisvc <<service>>
+    node "Job: indexer (one-shot)\npipeline stage 1: publishes the documents,\nwaits until they are stored" as indexerpod <<pod>> {
+      node "indexer (role pipeline)" as indexer <<container>>
+      artifact "searchv2-indexer:1.0.1\n(one image, role chosen by argument)" as indexerimg <<image>>
     }
-    node "Pods: indexer-tokenizer (2 replicas)\npipeline stage 2: reads a file, extracts its words" <<pod>> as tokpod {
-      node "indexer (role tokenizer)" <<container>> as tokenizer
+    node "Pods: indexer-tokenizer (2 replicas)\npipeline stage 2: reads a file, extracts its words" as tokpod <<pod>> {
+      node "indexer (role tokenizer)" as tokenizer <<container>>
     }
-    node "Pods: indexer-writer (2 replicas)\npipeline stage 3: stores a document in PostgreSQL" <<pod>> as writerpod {
-      node "indexer (role writer)" <<container>> as writer
+    node "Pods: indexer-writer (2 replicas)\npipeline stage 3: stores a document in PostgreSQL" as writerpod <<pod>> {
+      node "indexer (role writer)" as writer <<container>>
     }
-    artifact "rabbitmq-credentials" <<secret>> as mqsecretapp
-    folder "hostPath /data/searchv2-docs\n(document corpus, mounted read-only at /data/docs)" <<volume>> as docs
-    artifact "feature-flags\n(featureflags.json mounted at /config)" <<configmap>> as flags
-    artifact "postgresql-credentials" <<secret>> as pgsecret
+    artifact "rabbitmq-credentials" as mqsecretapp <<secret>>
+    folder "hostPath /data/searchv2-docs\n(document corpus, mounted read-only at /data/docs)" as docs <<volume>>
+    artifact "feature-flags\n(featureflags.json mounted at /config)" as flags <<configmap>>
+    artifact "postgresql-credentials" as pgsecret <<secret>>
   }
 
-  node "Namespace: caching" <<namespace>> as nscache {
-    node "Pod: redis (1 replica)" <<pod>> as redispod {
-      node "redis (:6379)" <<container>> as redis
-      artifact "redis:7-alpine" <<image>> as redisimg
+  node "Namespace: caching" as nscache <<namespace>> {
+    node "Pod: redis (1 replica)" as redispod <<pod>> {
+      node "redis (:6379)" as redis <<container>>
+      artifact "redis:7-alpine" as redisimg <<image>>
     }
-    artifact "redis-credentials" <<secret>> as redissecret
+    artifact "redis-credentials" as redissecret <<secret>>
   }
 
-  node "Namespace: messaging" <<namespace>> as nsmq {
-    node "Pod: rabbitmq (1 replica)" <<pod>> as mqpod {
-      node "rabbitmq (:5672 AMQP, :15672 UI, :15692 metrics)\nqueues: discovered, tokenized, failed" <<container>> as mq
-      artifact "rabbitmq:4-management" <<image>> as mqimg
+  node "Namespace: messaging" as nsmq <<namespace>> {
+    node "Pod: rabbitmq (1 replica)" as mqpod <<pod>> {
+      node "rabbitmq (:5672 AMQP, :15672 UI, :15692 metrics)\nqueues: discovered, tokenized, failed" as mq <<container>>
+      artifact "rabbitmq:4-management" as mqimg <<image>>
     }
-    artifact "rabbitmq-credentials" <<secret>> as mqsecret
+    artifact "rabbitmq-credentials" as mqsecret <<secret>>
   }
 
-  node "Namespace: database" <<namespace>> as nsdb {
-    node "StatefulSet pod: postgresql-db-0\n(Helm release, Bitnami chart 18.12.17)" <<pod>> as pgpod {
-      node "postgresql (:5432)\ndatabase searchengine, user searcher" <<container>> as pg
-      artifact "bitnami/postgresql" <<image>> as pgimg
+  node "Namespace: database" as nsdb <<namespace>> {
+    node "StatefulSet pod: postgresql-db-0\n(Helm release, Bitnami chart 18.12.17)" as pgpod <<pod>> {
+      node "postgresql (:5432)\ndatabase searchengine, user searcher" as pg <<container>>
+      artifact "bitnami/postgresql" as pgimg <<image>>
     }
-    database "PersistentVolumeClaim 2 GiB\n(survives pod replacement)" <<volume>> as pvc
+    database "PersistentVolumeClaim 2 GiB\n(survives pod replacement)" as pvc <<volume>>
   }
 
-  node "Namespace: devops (observability, emptyDir storage)" <<namespace>> as nsops {
-    node "otel-collector\n(:4317 gRPC, :4318 HTTP, :8889 metrics)" <<container>> as otel
-    node "prometheus (:9090)" <<container>> as prom
-    node "loki (:3100)" <<container>> as loki
-    node "grafana (:3000)\nprovisioned dashboard SearchV2" <<container>> as grafana
+  node "Namespace: devops (observability, emptyDir storage)" as nsops <<namespace>> {
+    node "otel-collector\n(:4317 gRPC, :4318 HTTP, :8889 metrics)" as otel <<container>>
+    node "prometheus (:9090)" as prom <<container>>
+    node "loki (:3100)" as loki <<container>>
+    node "grafana (:3000)\nprovisioned dashboard SearchV2" as grafana <<container>>
   }
 }
 

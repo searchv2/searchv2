@@ -12,13 +12,22 @@ the C4 container diagrams live in `../c4reference/`.
 
 The console client is out of scope, as everywhere else in this project.
 
-Each `.puml` has a rendered `.png` and `.svg` next to it. **The two diagrams changed for the indexing pipeline (`class-diagram-indexer`, `deployment-diagram`) have not been re-rendered yet**: run the command below.
+Each `.puml` has a rendered `.png` and `.svg` next to it. All four were re-rendered on 2026-11-27 with PlantUML 1.2026.x (jar version 8059), after the indexing pipeline, RabbitMQ and the workers were added to `class-diagram-indexer` and `deployment-diagram`.
 
 ## Rendering
 
 ```sh
-java -jar plantuml.jar -tsvg uml/*.puml     # or -tpng
+java -jar plantuml.jar -tsvg uml/*.puml
+java -DPLANTUML_LIMIT_SIZE=16384 -jar plantuml.jar -tpng uml/*.puml
 ```
+
+Run the SVG and the PNG as **two commands**: with both `-tsvg` and `-tpng` on one line only the last one is
+written. The size limit property matters for `deployment-diagram`, which is wider than PlantUML's default limit
+of 4,096 pixels and would otherwise be cut off at the right edge. On Java 24 and newer the PNG writer also needs
+`--add-exports java.desktop/com.sun.imageio.plugins.png=ALL-UNNAMED` before `-jar`.
+
+Newer PlantUML versions require the stereotype **after** the alias (`node "Name" as alias <<pod>>`); older ones
+accepted `node "Name" <<pod>> as alias`, and the deployment diagram was changed to the new order.
 
 `plantuml.jar` is not stored in the repo; install PlantUML (for example
 `sudo pacman -S plantuml`, then `plantuml -tsvg -tpng uml/*.puml`) or download the jar

@@ -1,7 +1,7 @@
 # Exam presentation
 
 `searchv2-exam.pptx` is a first version of the slides for the oral exam in *Arkitekturprincipper i praksis*.
-It is in English. 43 slides, speaker notes on every slide.
+It is in English. 44 slides, speaker notes on every slide.
 
 ## How it is built around the exam
 
@@ -16,9 +16,9 @@ backup block for the questions.
 | --- | --- | --- |
 | Presentation | 1 to 13 | The 5 to 10 minutes: plan, system overview, the five principles with proof, gain against cost, demo plan, conclusion |
 | Demo storyboard | 14 to 19 | The screens and commands for a live demo |
-| Architecture and diagrams | 20 to 25 | Kubernetes deployment, UML deployment, class and object diagrams, indexer design |
-| Evidence | 26 to 36 | Performance test, load tests with the cache on and off, what the numbers taught, cache, indexer dashboard, failures, PostgreSQL, z-axis, rollback |
-| Decisions and questions | 37 to 43 | Decision table, scaling cube, what is not done, likely questions, numbers to remember, file map |
+| Architecture and diagrams | 20 to 26 | Kubernetes deployment, UML deployment, class and object diagrams, indexer design |
+| Evidence | 27 to 37 | Performance test, load tests with the cache on and off, what the numbers taught, cache, indexer dashboard, failures, PostgreSQL, z-axis, rollback |
+| Decisions and questions | 38 to 44 | Decision table, scaling cube, what is not done, likely questions, numbers to remember, file map |
 
 ## Files
 
@@ -64,8 +64,8 @@ builds, but PowerPoint shows its default theme colours until you pick the colour
   and the measurements, not from your memory of the choices.
 * The author name on slide 1 comes from the git configuration.
 * Language: the exam is probably in Danish; the deck is in English.
-* The UML deployment diagram on slide 22 is the old rendering (before RabbitMQ and the workers). The updated
-  PlantUML source needs re-rendering (`plantuml -tsvg -tpng uml/*.puml`); slides 21 and 24 show the current
-  system as drawn diagrams in the meantime.
+* The UML diagrams on slides 22, 23, 25 and 26 are the rendered files from `uml/` (re-rendered on 2026-11-27, so the
+  deployment and indexer diagrams include RabbitMQ and the pipeline). They are detailed, so for questions open the
+  `.svg` files, which zoom without losing quality; slides 21 and 24 show the same structure as simpler drawn diagrams.
 * Pick which demo steps you will show live; the plan is on slide 12. The reindex step replaces the index.
 * The numbers are from one laptop and are relative; say so if asked.

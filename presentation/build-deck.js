@@ -531,9 +531,9 @@ divider('Architecture and diagrams', 'The deployment, the UML diagrams the exam 
 
 {
   const s = content('UML deployment diagram',
-    'This is the deployment diagram from module 7 notation. It was drawn before the indexing pipeline, so RabbitMQ and the tokenizer and writer pods are not in this picture; they are on the previous slide and in the updated PlantUML source (uml/deployment-diagram.puml), which still has to be re-rendered.');
+    'The deployment diagram in the module 7 notation, rendered from uml/deployment-diagram.puml. It shows the five namespaces: searchv2 with the GUI, the API, the indexer Job and the tokenizer and writer pods; caching with Redis; messaging with RabbitMQ; database with PostgreSQL and its volume; devops with the observability stack. Links carry protocol and port, dashed lines are mounts, secrets and image loads. It is very detailed, so for questions open uml/deployment-diagram.svg and zoom.');
   pic(s, UML + 'deployment-diagram.png', 0.6, 1.35, 12.1, 5.2);
-  caption(s, 'Rendered from uml/deployment-diagram.puml before the pipeline was added. The source has since been updated with RabbitMQ and the workers.', 0.6, 6.6, 12.1);
+  caption(s, 'Rendered from uml/deployment-diagram.puml, including RabbitMQ and the pipeline workers. Full size: uml/deployment-diagram.svg.', 0.6, 6.6, 12.1);
 }
 
 {
@@ -564,6 +564,13 @@ divider('Architecture and diagrams', 'The deployment, the UML diagrams the exam 
   node(s, 8.65, 4.95, 2.3, 0.8, 'PostgresDocumentWriter', { line: C.accent3, size: 12 });
   text(s, 'Infrastructure: adapters, wired only in Program.cs', { x: 0.85, y: 5.85, w: 8, h: 0.3, fontSize: 12, color: C.text2, italic: true });
   text(s, 'DocumentDiscovered(Url, CreatedAt) · DocumentTokenized(Url, CreatedAt, Words)', { x: 0.85, y: 6.25, w: 11.5, h: 0.4, fontSize: 13 });
+}
+
+{
+  const s = content('UML class diagram: the indexer',
+    'The rendered class diagram for the indexer: the application services (the old batch service and the three pipeline stages), the ports in Core, the messages, and the infrastructure adapters, with the RabbitMQ queues, the document corpus and the PostgreSQL index as external things. Compare it with the drawn version on the previous slide.');
+  pic(s, UML + 'class-diagram-indexer.png', 0.6, 1.35, 12.1, 5.2);
+  caption(s, 'Rendered from uml/class-diagram-indexer.puml (2026-11-27). Full size: uml/class-diagram-indexer.svg.', 0.6, 6.6, 12.1);
 }
 
 {
@@ -781,7 +788,6 @@ divider('Decisions, limits and questions', 'The choices behind the system, what 
     ['Redis outage:', 'every search takes about 4 s because Redis is tried twice; a circuit breaker is not built.'],
     ['Autoscaling:', 'worker counts are set by hand; scaling on queue length (KEDA) is the next step.'],
     ['Alerts exercised:', 'MetricsPipelineDown and ServerErrorRateHigh were only checked for loading, not made to fire.'],
-    ['Diagrams:', 'the PlantUML sources for the deployment and indexer class diagrams were updated but not re-rendered.'],
     ['Search agents, snippets, score, termnet:', 'descoped on purpose.'],
   ], { x: 0.6, y: 1.4, w: 12.1, h: 5.4, fontSize: 17, paraSpaceAfter: 10 });
 }
